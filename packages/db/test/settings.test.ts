@@ -18,6 +18,8 @@ describeDb('settings (integração)', () => {
     expect(await getSetting(prisma, 'mode.simulation')).toBe(false);
     const log = await prisma.auditLog.findFirstOrThrow({ where: { action: 'settings.update' } });
     expect(log.target).toBe('mode.simulation');
-    await expect(setSetting(prisma, 'limits.daily', { long: 99, shorts: 1 }, 'owner')).rejects.toThrow();
+    await expect(
+      setSetting(prisma, 'limits.daily', { long: 99, shorts: 1 }, 'owner'),
+    ).rejects.toThrow();
   });
 });

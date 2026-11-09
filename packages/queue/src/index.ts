@@ -1,5 +1,12 @@
 import { createHash } from 'node:crypto';
-import { Queue, Worker, type ConnectionOptions, type Job, type JobsOptions, type Processor } from 'bullmq';
+import {
+  Queue,
+  Worker,
+  type ConnectionOptions,
+  type Job,
+  type JobsOptions,
+  type Processor,
+} from 'bullmq';
 
 /** Filas separadas por tipo de trabalho, cada uma com concorrência própria. */
 export const QUEUE_NAMES = [
@@ -38,7 +45,11 @@ export function redisConnection(redisUrl: string): ConnectionOptions {
 export function deterministicJobId(...parts: Array<string | number>): string {
   if (parts.length === 0) throw new Error('deterministicJobId precisa de pelo menos uma parte');
   const raw = parts
-    .map((p) => String(p).trim().replace(/[^A-Za-z0-9._-]+/g, '-'))
+    .map((p) =>
+      String(p)
+        .trim()
+        .replace(/[^A-Za-z0-9._-]+/g, '-'),
+    )
     .join('.');
   if (raw.length <= 120) return raw;
   const digest = createHash('sha256').update(parts.join('\u0000')).digest('hex').slice(0, 24);

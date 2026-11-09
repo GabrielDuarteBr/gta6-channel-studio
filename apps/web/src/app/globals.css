@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+/* Identidade visual do painel: neon, pôr do sol, noite na Flórida.
+   Inspirada na estética, sem logo, tipografia ou personagens oficiais. */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Anton', 'Inter Variable', ui-sans-serif, sans-serif;
+
+  --color-night-950: #07040f;
+  --color-night-900: #0d0819;
+  --color-night-800: #160f29;
+  --color-night-700: #221840;
+  --color-night-600: #33265c;
+  --color-haze-300: #c9bfe6;
+  --color-haze-400: #a397c7;
+  --color-haze-500: #7d72a3;
+
+  --color-neon-pink: #ff3d8b;
+  --color-neon-cyan: #2ee6f2;
+  --color-sunset: #ff9a3c;
+  --color-palm: #3ddc97;
+  --color-alert: #ff5c5c;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-night-950 text-haze-300 font-sans antialiased;
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, rgb(255 61 139 / 0.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgb(46 230 242 / 0.1), transparent 60%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply text-white;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-neon-cyan);
+    outline-offset: 2px;
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+@utility neon-text {
+  color: #fff;
+  text-shadow:
+    0 0 6px rgb(255 61 139 / 0.8),
+    0 0 22px rgb(255 61 139 / 0.45);
+}
+
+@utility sunset-line {
+  background: linear-gradient(
+    90deg,
+    var(--color-neon-pink),
+    var(--color-sunset),
+    var(--color-neon-cyan)
+  );
+}

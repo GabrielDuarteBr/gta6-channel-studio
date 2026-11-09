@@ -24,9 +24,12 @@ export function encryptSecret(plain: string, key: Buffer, context: string): stri
   cipher.setAAD(Buffer.from(context, 'utf8'));
   const ct = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return [VERSION, iv.toString('base64url'), tag.toString('base64url'), ct.toString('base64url')].join(
-    ':',
-  );
+  return [
+    VERSION,
+    iv.toString('base64url'),
+    tag.toString('base64url'),
+    ct.toString('base64url'),
+  ].join(':');
 }
 
 export function decryptSecret(payload: string, key: Buffer, context: string): string {

@@ -69,12 +69,18 @@ async function main(): Promise<void> {
   await prisma.$disconnect();
 
   console.log('\n✅ Dono do painel criado:', owner.email);
-  console.log('\n1) Escaneie o QR code no app autenticador (Google Authenticator, Authy, 1Password...):\n');
+  console.log(
+    '\n1) Escaneie o QR code no app autenticador (Google Authenticator, Authy, 1Password...):\n',
+  );
   console.log(await QRCode.toString(owner.otpauthUri, { type: 'terminal', small: true }));
   console.log('   Se não conseguir escanear, digite esta chave no app:', owner.totpSecret);
-  console.log('\n2) Guarde estes códigos de recuperação num lugar seguro (cada um vale uma vez):\n');
+  console.log(
+    '\n2) Guarde estes códigos de recuperação num lugar seguro (cada um vale uma vez):\n',
+  );
   for (const c of owner.recoveryCodes) console.log('   ', c);
-  console.log('\n3) Abra http://localhost:3000 e entre com e-mail, senha e o código de 6 dígitos.\n');
+  console.log(
+    '\n3) Abra http://localhost:3000 e entre com e-mail, senha e o código de 6 dígitos.\n',
+  );
 }
 
 main().catch((err: unknown) => {

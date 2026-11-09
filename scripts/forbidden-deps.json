@@ -14,6 +14,15 @@
     "node-youtube-dl",
     "ytdlp-nodejs"
   ],
-  "python": ["yt-dlp", "yt_dlp", "youtube-dl", "youtube_dl", "pytube", "pytubefix", "pafy", "youtube-dlc"],
+  "python": [
+    "yt-dlp",
+    "yt_dlp",
+    "youtube-dl",
+    "youtube_dl",
+    "pytube",
+    "pytubefix",
+    "pafy",
+    "youtube-dlc"
+  ],
   "binaries": ["yt-dlp", "youtube-dl"]
 }

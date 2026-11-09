@@ -1,4 +1,4 @@
-import { describe } from "vitest";
+import { describe } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { createPrisma, type PrismaClient } from '../src';
 

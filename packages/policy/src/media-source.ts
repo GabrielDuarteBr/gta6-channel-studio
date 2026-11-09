@@ -39,7 +39,10 @@ export function assertMediaImportAllowed(rawUrl: string): URL {
     throw new PolicyViolation('NO_YOUTUBE_DOWNLOAD', 'Só são aceitos links https.');
   }
   if (url.username || url.password) {
-    throw new PolicyViolation('NO_YOUTUBE_DOWNLOAD', 'Links com credenciais embutidas não são aceitos.');
+    throw new PolicyViolation(
+      'NO_YOUTUBE_DOWNLOAD',
+      'Links com credenciais embutidas não são aceitos.',
+    );
   }
   if (isBlockedMediaHost(url.hostname)) {
     throw new PolicyViolation(

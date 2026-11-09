@@ -41,22 +41,35 @@ describeDb('verifyOwnerLogin (integração)', () => {
   });
 
   it('aceita senha + código TOTP corretos', async () => {
-    const r = await verifyOwnerLogin(prisma, testKey, { email, password, code: await codeAt(t0) }, t0);
+    const r = await verifyOwnerLogin(
+      prisma,
+      testKey,
+      { email, password, code: await codeAt(t0) },
+      t0,
+    );
     expect(r.ok).toBe(true);
   });
 
   it('recusa senha errada, código errado e falta de segundo fator', async () => {
     const code = await codeAt(t0);
-    expect((await verifyOwnerLogin(prisma, testKey, { email, password: 'x'.repeat(12), code }, t0)).ok).toBe(false);
-    expect((await verifyOwnerLogin(prisma, testKey, { email, password, code: '000000' }, t0)).ok).toBe(false);
-    expect((await verifyOwnerLogin(prisma, testKey, { email, password, code: '' }, t0)).ok).toBe(false);
+    expect(
+      (await verifyOwnerLogin(prisma, testKey, { email, password: 'x'.repeat(12), code }, t0)).ok,
+    ).toBe(false);
+    expect(
+      (await verifyOwnerLogin(prisma, testKey, { email, password, code: '000000' }, t0)).ok,
+    ).toBe(false);
+    expect((await verifyOwnerLogin(prisma, testKey, { email, password, code: '' }, t0)).ok).toBe(
+      false,
+    );
   });
 
   it('não aceita o mesmo código TOTP duas vezes', async () => {
     const code = await codeAt(t0);
     expect((await verifyOwnerLogin(prisma, testKey, { email, password, code }, t0)).ok).toBe(true);
     const again = new Date(t0.getTime() + 5_000);
-    expect((await verifyOwnerLogin(prisma, testKey, { email, password, code }, again)).ok).toBe(false);
+    expect((await verifyOwnerLogin(prisma, testKey, { email, password, code }, again)).ok).toBe(
+      false,
+    );
   });
 
   it('código de recuperação funciona uma única vez', async () => {
@@ -68,19 +81,75 @@ describeDb('verifyOwnerLogin (integração)', () => {
 
   it('bloqueia após 5 falhas seguidas, mesmo com a senha certa depois', async () => {
     for (let i = 0; i < LOGIN_POLICY.maxFailures; i++) {
-      await verifyOwnerLogin(prisma, testKey, { email, password: 'errada-errada', code: '123456' }, t0);
+      await verifyOwnerLogin(
+        prisma,
+        testKey,
+        { email, password: 'errada-errada', code: '123456' },
+        t0,
+      );
     }
-    const r = await verifyOwnerLogin(prisma, testKey, { email, password, code: await codeAt(t0) }, t0);
+    const r = await verifyOwnerLogin(
+      prisma,
+      testKey,
+      { email, password, code: await codeAt(t0) },
+      t0,
+    );
     expect(r).toEqual({ ok: false, reason: 'locked' });
     const later = new Date(t0.getTime() + (LOGIN_POLICY.lockMinutes + 1) * 60_000);
-    const ok = await verifyOwnerLogin(prisma, testKey, { email, password, code: await codeAt(later) }, later);
+    const ok = await verifyOwnerLogin(
+      prisma,
+      testKey,
+      { email, password, code: await codeAt(later) },
+      later,
+    );
     expect(ok.ok).toBe(true);
   });
 
   it('grava auditoria de sucesso e de falha', async () => {
     await verifyOwnerLogin(prisma, testKey, { email, password, code: '000000' }, t0);
     await verifyOwnerLogin(prisma, testKey, { email, password, code: await codeAt(t0) }, t0);
-    const logs = await prisma.auditLog.findMany({ where: { action: 'auth.login' }, orderBy: { at: 'asc' } });
+    const logs = await prisma.auditLog.findMany({
+      where: { action: 'auth.login' },
+      orderBy: { at: 'asc' },
+    });
     expect(logs.map((l) => l.outcome)).toEqual(['DENIED', 'OK']);
+  });
+});
+
+describeDb('createOwner (integração)', () => {
+  const prisma = testPrisma();
+  afterAll(() => prisma.$disconnect());
+
+  it('recriar o dono incrementa sessionVersion (derruba sessões abertas) e troca o segredo', async () => {
+    await resetDb(prisma);
+    const a = await createOwner(prisma, testKey, {
+      email: 'x@exemplo.com',
+      password: 'senha-muito-forte-1',
+    });
+    const before = await prisma.user.findUniqueOrThrow({ where: { email: 'x@exemplo.com' } });
+    const b = await createOwner(prisma, testKey, {
+      email: 'x@exemplo.com',
+      password: 'senha-muito-forte-2',
+    });
+    const after = await prisma.user.findUniqueOrThrow({ where: { email: 'x@exemplo.com' } });
+    expect(after.sessionVersion).toBe(before.sessionVersion + 1);
+    expect(a.totpSecret).not.toBe(b.totpSecret);
+  });
+
+  it('mantém um único dono', async () => {
+    await createOwner(prisma, testKey, {
+      email: 'outro@exemplo.com',
+      password: 'senha-muito-forte-3',
+    });
+    expect(await prisma.user.count()).toBe(1);
+  });
+
+  it('recusa senha curta e e-mail inválido', async () => {
+    await expect(
+      createOwner(prisma, testKey, { email: 'a@b.co', password: 'curta' }),
+    ).rejects.toThrow();
+    await expect(
+      createOwner(prisma, testKey, { email: 'sem-arroba', password: 'senha-muito-forte' }),
+    ).rejects.toThrow();
   });
 });

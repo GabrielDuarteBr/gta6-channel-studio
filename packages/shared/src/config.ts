@@ -8,11 +8,9 @@ export const booleanish = z
   .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
   .transform((v) => v === true || v === 'true' || v === '1');
 
-const base64Key32 = z
-  .string()
-  .refine((v) => Buffer.from(v, 'base64').length === 32, {
-    message: 'precisa ser uma chave de 32 bytes em base64 (gere com `make setup`)',
-  });
+const base64Key32 = z.string().refine((v) => Buffer.from(v, 'base64').length === 32, {
+  message: 'precisa ser uma chave de 32 bytes em base64 (gere com `make setup`)',
+});
 
 export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

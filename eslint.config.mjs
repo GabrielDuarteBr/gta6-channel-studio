@@ -52,6 +52,8 @@ export default tseslint.config(
     rules: {
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs['core-web-vitals'].rules,
+      // App Router: não há diretório pages/.
+      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   {

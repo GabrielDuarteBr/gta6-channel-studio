@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - e2e
 
 # pnpm 10 bloqueia scripts de instalação por padrão; só estes podem rodar.
 onlyBuiltDependencies:

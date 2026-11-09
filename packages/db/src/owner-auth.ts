@@ -78,7 +78,11 @@ export async function createOwner(
   const user = await prisma.$transaction(async (tx) => {
     // Painel de um usuário só: remove qualquer outro dono.
     await tx.user.deleteMany({ where: { email: { not: email } } });
-    const u = await tx.user.upsert({ where: { email }, create: data, update: data });
+    const u = await tx.user.upsert({
+      where: { email },
+      create: data,
+      update: { ...data, sessionVersion: { increment: 1 } },
+    });
     await audit(tx, { actor: 'system', action: 'owner.create', target: email });
     return u;
   });
@@ -93,7 +97,11 @@ export async function createOwner(
 
 export type LoginFailure = 'invalid' | 'locked';
 export type LoginResult =
-  | { ok: true; user: { id: string; email: string }; usedRecoveryCode: boolean }
+  | {
+      ok: true;
+      user: { id: string; email: string; sessionVersion: number };
+      usedRecoveryCode: boolean;
+    }
   | { ok: false; reason: LoginFailure };
 
 export interface LoginInput {
@@ -122,12 +130,20 @@ export async function verifyOwnerLogin(
   if (!user) {
     // Gasta o mesmo tempo de um hash para não revelar se o e-mail existe.
     await hashPassword(input.password);
-    await audit(prisma, { ...auditBase, outcome: 'DENIED', details: { reason: 'unknown', ip: input.ip } });
+    await audit(prisma, {
+      ...auditBase,
+      outcome: 'DENIED',
+      details: { reason: 'unknown', ip: input.ip },
+    });
     return { ok: false, reason: 'invalid' };
   }
 
   if (user.lockedUntil && user.lockedUntil > now) {
-    await audit(prisma, { ...auditBase, outcome: 'DENIED', details: { reason: 'locked', ip: input.ip } });
+    await audit(prisma, {
+      ...auditBase,
+      outcome: 'DENIED',
+      details: { reason: 'locked', ip: input.ip },
+    });
     return { ok: false, reason: 'locked' };
   }
 
@@ -198,5 +214,9 @@ export async function verifyOwnerLogin(
     ...auditBase,
     details: { usedRecoveryCode, remainingRecoveryCodes: remainingRecovery.length, ip: input.ip },
   });
-  return { ok: true, user: { id: user.id, email }, usedRecoveryCode };
+  return {
+    ok: true,
+    user: { id: user.id, email, sessionVersion: user.sessionVersion },
+    usedRecoveryCode,
+  };
 }
