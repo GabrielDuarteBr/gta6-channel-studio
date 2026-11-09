@@ -6,7 +6,7 @@
  */
 import { stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline/promises';
-import { authEnvSchema, loadEncryptionKey, parseEnv } from '@studio/shared';
+import { encryptionEnvSchema, loadEncryptionKey, parseEnv } from '@studio/shared';
 import QRCode from 'qrcode';
 import { createOwner, getPrisma, LOGIN_POLICY } from '../src';
 
@@ -44,7 +44,7 @@ async function askHidden(question: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  const { TOKEN_ENCRYPTION_KEY } = parseEnv(authEnvSchema);
+  const { TOKEN_ENCRYPTION_KEY } = parseEnv(encryptionEnvSchema);
   const key = loadEncryptionKey(TOKEN_ENCRYPTION_KEY);
 
   let email = process.env.OWNER_EMAIL ?? '';

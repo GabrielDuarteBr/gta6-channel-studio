@@ -8,4 +8,8 @@ if [ -s /run/secrets/extra_ca ]; then
   export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca
   export SSL_CERT_FILE="$bundle" CURL_CA_BUNDLE="$bundle" REQUESTS_CA_BUNDLE="$bundle" PIP_CERT="$bundle"
 fi
+# Atrás de proxy, faz o Node (ex.: download do Chrome do Remotion) respeitar HTTPS_PROXY.
+if [ -n "${HTTPS_PROXY:-}${https_proxy:-}" ]; then
+  export NODE_USE_ENV_PROXY=1
+fi
 exec "$@"

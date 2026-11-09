@@ -31,9 +31,14 @@ export const redisEnvSchema = z.object({
   }),
 });
 
-export const authEnvSchema = z.object({
-  AUTH_SECRET: z.string().min(32, 'precisa ter pelo menos 32 caracteres'),
+/** Chave que cifra tokens OAuth e o segredo TOTP (web e agents). */
+export const encryptionEnvSchema = z.object({
   TOKEN_ENCRYPTION_KEY: base64Key32,
+});
+
+/** Painel: segredo das sessões + chave de cifragem. */
+export const authEnvSchema = encryptionEnvSchema.extend({
+  AUTH_SECRET: z.string().min(32, 'precisa ter pelo menos 32 caracteres'),
 });
 
 export const s3EnvSchema = z.object({

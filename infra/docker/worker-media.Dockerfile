@@ -37,4 +37,5 @@ RUN --mount=type=secret,id=extra_ca,required=false \
 COPY apps/worker-media/tests ./tests
 COPY apps/worker-media/pyproject.toml ./
 USER media
-CMD ["sh", "-c", "ruff check . && ruff format --check . && pytest -q"]
+ENV RUFF_NO_CACHE=true
+CMD ["sh", "-c", "ruff check . && ruff format --check . && pytest -q -p no:cacheprovider"]

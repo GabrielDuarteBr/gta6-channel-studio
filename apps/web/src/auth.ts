@@ -1,5 +1,5 @@
 import { getPrisma, verifyOwnerLogin } from '@studio/db';
-import { authEnvSchema, loadEncryptionKey, parseEnv } from '@studio/shared';
+import { encryptionEnvSchema, loadEncryptionKey, parseEnv } from '@studio/shared';
 import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
@@ -33,7 +33,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(raw, request) {
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) throw new InvalidLogin();
-        const key = loadEncryptionKey(parseEnv(authEnvSchema).TOKEN_ENCRYPTION_KEY);
+        const key = loadEncryptionKey(parseEnv(encryptionEnvSchema).TOKEN_ENCRYPTION_KEY);
         const ip = clientIp(request.headers);
         const result = await verifyOwnerLogin(getPrisma(), key, {
           ...parsed.data,
