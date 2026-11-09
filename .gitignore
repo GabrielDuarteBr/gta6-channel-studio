@@ -1,0 +1,56 @@
+# Segredos — NUNCA versionar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Dependências e builds
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+build/
+out/
+.next/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma (cliente gerado)
+packages/db/src/generated/
+
+# Remotion / mídia gerada
+apps/render/out/
+apps/render/.remotion/
+storage/
+tmp/
+*.mp4
+*.wav
+!**/fixtures/**/*.wav
+!**/fixtures/**/*.mp4
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+e2e/.auth/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code (configuração local do usuário)
+.claude/settings.local.json
