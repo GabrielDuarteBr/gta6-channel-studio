@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./infra/docker/extra-ca.local.pem)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)"
+    ],
+    "allow": [
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm turbo run:*)",
+      "Bash(pnpm --filter:*)",
+      "Bash(make help)",
+      "Bash(make ps)",
+      "Bash(make logs:*)",
+      "Bash(make test:*)",
+      "Bash(make e2e:*)",
+      "Bash(make wsl-check)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-secrets.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-edit.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "remotion": {
+      "source": { "source": "github", "repo": "remotion-dev/claude-code-plugin" }
+    }
+  },
+  "enabledPlugins": {
+    "remotion@remotion": true,
+    "frontend-design@claude-plugins-official": true
+  }
+}

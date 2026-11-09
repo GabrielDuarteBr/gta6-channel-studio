@@ -101,6 +101,18 @@ o Prisma 7 não gera o cliente sozinho).
 - Toda mudança de configuração passa por `setSetting` (valida e audita).
 - Licença do Remotion: gratuita (pessoa física / até 3 pessoas). Rever se isso mudar.
 
+## Claude Code neste repositório
+
+- `.claude/settings.json`: hooks (`post-edit.sh` formata e roda o lint do arquivo editado;
+  `guard-secrets.sh` bloqueia `git add/commit` de `.env` e de diffs com chaves), permissões (nega ler
+  `.env` e usar ssh/scp) e plugins `remotion@remotion` e `frontend-design@claude-plugins-official`.
+- `.mcp.json`: Playwright, Postgres (`postgres-mcp` em modo restrito, só leitura), Context7 e GitHub.
+  Variáveis no shell do Ubuntu (nunca no repositório): `STUDIO_DB_URL` (URL do Postgres local em
+  `127.0.0.1:55432`) e `GITHUB_MCP_PAT` (token fine-grained do GitHub, só leitura).
+- Subagentes em `.claude/agents/` (revisor-codigo, testador-ui, especialista-youtube-api,
+  especialista-ffmpeg, especialista-remotion, especialista-infra) e skills em `.claude/skills/`.
+- Depois de instalar plugins ou mudar MCPs, reinicie a sessão do Claude Code.
+
 ## Notebook (WSL 2)
 
 Setup completo para o dono em `docs/notebook-setup.md` (.wslconfig para 16 GB: `memory=10GB`,

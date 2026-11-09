@@ -156,6 +156,25 @@ interrompidos são retomados sem duplicar (a partir da Fase 1, com o agendador; 
 disso é na Fase 7). Se o Docker Desktop não abrir sozinho com o Windows, ative em Settings → General
 → **Start Docker Desktop when you sign in**.
 
+## Claude Code no notebook (opcional)
+
+Se você usar o Claude Code dentro do Ubuntu, o repositório já traz hooks, subagentes, skills,
+os plugins do Remotion e do frontend-design e quatro MCPs. Ao abrir o projeto pela primeira vez, o
+Claude Code pede para você confiar nessas configurações. Dois MCPs precisam de variáveis no seu
+terminal (nunca coloque isso no repositório):
+
+1. Postgres local (só leitura). Pegue a senha em `POSTGRES_PASSWORD` no seu `.env` e adicione ao
+   final do `~/.bashrc`:
+   ```bash
+   export STUDIO_DB_URL="postgresql://studio:SUA_SENHA_DO_ENV@127.0.0.1:55432/studio"
+   ```
+2. GitHub: crie um token fine-grained (GitHub → Settings → Developer settings → Personal access
+   tokens → Fine-grained), só com leitura do repositório `gta6-channel-studio`, e adicione:
+   ```bash
+   export GITHUB_MCP_PAT="seu_token"
+   ```
+3. Rode `source ~/.bashrc` e reinicie o Claude Code.
+
 ## RTX 3050 (opcional, mais adiante)
 
 O padrão é CPU (igual à VPS). Na Fase 2/3 haverá um arquivo opcional para usar a GPU na transcrição

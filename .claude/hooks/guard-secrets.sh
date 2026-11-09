@@ -5,19 +5,29 @@ set -euo pipefail
 input=$(cat)
 cmd=$(printf '%s' "$input" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(JSON.parse(s).tool_input?.command??"")}catch{}})')
 
-# Só interessa git add/commit.
-if ! grep -Eq '(^|[;&|[:space:]])git[[:space:]]+(add|commit)' <<<"$cmd"; then exit 0; fi
+# Só comandos git add/commit no início do comando ou após && ; | ( contam
+# (o texto de uma mensagem de commit que cite ".env" não dispara o bloqueio).
+start='(^|[;&|(][[:space:]]*)'
+if ! grep -Eq "${start}git[[:space:]]+(add|commit)" <<<"$cmd"; then exit 0; fi
 
-# 1) .env (exceto .env.example) citado explicitamente
-if grep -Eq '(^|[[:space:]/])\.env(\.[A-Za-z0-9_-]+)?([[:space:]]|$)' <<<"$cmd" && ! grep -Eq '\.env\.example' <<<"$cmd"; then
-  echo "Bloqueado: .env contém segredos e nunca vai para o Git." >&2
-  exit 2
-fi
+is_env_file() { grep -Eq '(^|/)\.env(\.[^/]*)?$' <<<"$1" && ! grep -Eq '(^|/)\.env\.example$' <<<"$1"; }
+
+# 1) git add citando um .env (exceto .env.example)
+while IFS= read -r segment; do
+  for tok in $segment; do
+    tok=${tok//\"/}
+    tok=${tok//\'/}
+    if is_env_file "$tok"; then
+      echo "Bloqueado: .env contém segredos e nunca vai para o Git." >&2
+      exit 2
+    fi
+  done
+done < <(grep -oE "${start}git[[:space:]]+add[^;&|]*" <<<"$cmd" || true)
 
 # 2) No commit, confere o que está staged
-if grep -Eq 'git[[:space:]]+commit' <<<"$cmd"; then
-  staged=$(git diff --cached --name-only 2>/dev/null || true)
-  if grep -Eq '(^|/)\.env(\.[^/]*)?$' <<<"$staged" && ! grep -Eq '(^|/)\.env\.example$' <<<"$staged"; then
+if grep -Eq "${start}git[[:space:]]+commit" <<<"$cmd"; then
+  staged=$(git diff --cached --name-only 2>/dev/null | grep -Ev '(^|/)\.env\.example$' || true)
+  if grep -Eq '(^|/)\.env(\.[^/]*)?$' <<<"$staged"; then
     echo "Bloqueado: há um .env staged. Rode 'git restore --staged <arquivo>'." >&2
     exit 2
   fi
