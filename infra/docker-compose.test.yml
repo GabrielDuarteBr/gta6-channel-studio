@@ -1,0 +1,47 @@
+# =====================================================================
+# Pilha ISOLADA de testes (projeto "radar-neon-test", volumes próprios).
+# Usada por `make test`, `make e2e` e `make accept-0`. Não toca nos seus
+# dados reais. Valores fictícios em infra/test.env.
+# =====================================================================
+services:
+  postgres:
+    ports: !reset []
+    volumes:
+      - ./postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+
+  web:
+    ports: !override ['127.0.0.1:3100:3000']
+
+  # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
+  tests:
+    build:
+      context: ..
+      dockerfile: infra/docker/node.Dockerfile
+      target: ci
+      secrets: [extra_ca]
+    image: radar-neon/ci:local
+    environment:
+      TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/studio_test
+      TEST_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    profiles: [tests]
+
+  # Testes de ponta a ponta do painel (Playwright com navegadores).
+  e2e:
+    build:
+      context: ..
+      dockerfile: infra/docker/node.Dockerfile
+      target: e2e
+      secrets: [extra_ca]
+    image: radar-neon/e2e:local
+    environment:
+      E2E_BASE_URL: http://web:3000
+      E2E_OWNER_EMAIL: ${E2E_OWNER_EMAIL}
+      E2E_OWNER_PASSWORD: ${E2E_OWNER_PASSWORD}
+      E2E_OWNER_TOTP_SECRET: ${E2E_OWNER_TOTP_SECRET}
+    ipc: host
+    depends_on:
+      web: { condition: service_healthy }
+    profiles: [tests]

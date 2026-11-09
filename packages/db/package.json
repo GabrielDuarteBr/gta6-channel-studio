@@ -20,11 +20,11 @@
     "@prisma/client": "7.10.1",
     "@studio/shared": "workspace:*",
     "otplib": "13.6.0",
+    "prisma": "7.10.1",
     "qrcode": "1.5.4"
   },
   "devDependencies": {
     "@types/qrcode": "1.5.6",
-    "prisma": "7.10.1",
     "tsx": "4.23.15"
   }
 }

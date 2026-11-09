@@ -54,3 +54,7 @@ Thumbs.db
 
 # Claude Code (configuração local do usuário)
 .claude/settings.local.json
+
+# CA extra local (proxy corporativo)
+infra/docker/extra-ca.local.pem
+!infra/docker/no-extra-ca.pem

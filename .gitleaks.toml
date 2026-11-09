@@ -1,0 +1,16 @@
+# Varredura de segredos (CI e hook de pre-commit).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores fictícios de teste e exemplos documentados"
+paths = [
+  '''infra/test\.env''',
+  '''\.env\.example''',
+  '''pnpm-lock\.yaml''',
+  '''apps/worker-media/uv\.lock''',
+]
+regexes = [
+  '''JBSWY3DPEHPK3PXP''',
+  '''test-only-[a-z-]+''',
+]

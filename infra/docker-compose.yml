@@ -1,0 +1,170 @@
+# =====================================================================
+# Radar Neon — pilha do NOTEBOOK (Windows 11 + WSL 2 + Docker Desktop)
+# Suba com `make up` (no Ubuntu do WSL). Painel: http://localhost:3000
+#
+# Segurança: só o painel (127.0.0.1:3000) e o Postgres (127.0.0.1:55432,
+# para inspeção local) são publicados, e apenas em localhost.
+# =====================================================================
+name: radar-neon
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: '10m', max-file: '3' }
+
+x-app-env: &app-env
+  APP_PROFILE: ${APP_PROFILE:-notebook}
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SIMULATION_MODE: ${SIMULATION_MODE:-true}
+  TZ: America/Sao_Paulo
+  DATABASE_URL: postgresql://${POSTGRES_USER:-studio}:${POSTGRES_PASSWORD:?rode make setup}@postgres:5432/${POSTGRES_DB:-studio}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?rode make setup}@redis:6379/0
+  S3_ENDPOINT: http://s3:8333
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:-studio}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?rode make setup}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?rode make setup}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?rode make setup}
+  AGENTS_URL: http://agents:4100
+  RENDER_URL: http://render:4200
+  MEDIA_URL: http://worker-media:4300
+  S3_HEALTH_URL: http://s3:8333/healthz
+
+x-build: &build
+  context: ..
+  dockerfile: infra/docker/node.Dockerfile
+  secrets: [extra_ca]
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-studio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?rode make setup}
+      POSTGRES_DB: ${POSTGRES_DB:-studio}
+      TZ: America/Sao_Paulo
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ['127.0.0.1:55432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy: { resources: { limits: { cpus: '1.0', memory: 512M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:8-alpine
+    # BullMQ exige maxmemory-policy noeviction.
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD:?rode make setup} --appendonly yes
+      --maxmemory 200mb --maxmemory-policy noeviction
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?rode make setup}
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy: { resources: { limits: { cpus: '0.5', memory: 256M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  s3:
+    image: chrislusf/seaweedfs:4.53
+    entrypoint: ['/bin/sh', '/start.sh']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?rode make setup}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?rode make setup}
+      S3_BUCKET: ${S3_BUCKET:-studio}
+    volumes:
+      - s3data:/data
+      - ./seaweedfs/start.sh:/start.sh:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8333/healthz']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy: { resources: { limits: { cpus: '1.0', memory: 512M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  # Aplica as migrations do banco e termina.
+  migrate:
+    build: { <<: *build, target: agents }
+    image: radar-neon/agents:local
+    working_dir: /app/packages/db
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+    logging: *logging
+
+  web:
+    build: { <<: *build, target: web }
+    image: radar-neon/web:local
+    environment:
+      <<: *app-env
+      AUTH_SECRET: ${AUTH_SECRET:?rode make setup}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '1.0', memory: 768M } } }
+    restart: unless-stopped
+    logging: *logging
+
+  agents:
+    build: { <<: *build, target: agents }
+    image: radar-neon/agents:local
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '1.5', memory: 1G } } }
+    restart: unless-stopped
+    logging: *logging
+
+  render:
+    build: { <<: *build, target: render }
+    image: radar-neon/render:local
+    environment: *app-env
+    volumes: [mediawork:/data/work]
+    shm_size: 1gb
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '3.0', memory: 3G } } }
+    restart: unless-stopped
+    logging: *logging
+
+  worker-media:
+    build:
+      context: ..
+      dockerfile: infra/docker/worker-media.Dockerfile
+      secrets: [extra_ca]
+    image: radar-neon/worker-media:local
+    environment:
+      APP_PROFILE: ${APP_PROFILE:-notebook}
+      TZ: America/Sao_Paulo
+    volumes: [mediawork:/data/work]
+    deploy: { resources: { limits: { cpus: '2.0', memory: 2G } } }
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  s3data:
+  mediawork:
+
+secrets:
+  # CA extra só para o build atrás de proxy corporativo. Padrão: arquivo vazio.
+  # Se usar, coloque o certificado DENTRO do repositório (ex.: infra/docker/extra-ca.local.pem,
+  # ignorado pelo Git) e aponte EXTRA_CA_CERT=./docker/extra-ca.local.pem no .env.
+  extra_ca:
+    file: ${EXTRA_CA_CERT:-./docker/no-extra-ca.pem}

@@ -1,0 +1,21 @@
+# Sobe o Radar Neon no boot da VPS (instalado pelo bootstrap na Fase 8).
+#   sudo cp infra/systemd/radar-neon.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now radar-neon
+[Unit]
+Description=Radar Neon (Docker Compose de produção)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=deploy
+Group=docker
+WorkingDirectory=/opt/radar-neon
+ExecStart=/usr/bin/docker compose -f infra/docker-compose.prod.yml --env-file .env up -d --wait
+ExecStop=/usr/bin/docker compose -f infra/docker-compose.prod.yml --env-file .env down
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

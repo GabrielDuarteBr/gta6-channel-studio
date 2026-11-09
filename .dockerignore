@@ -1,0 +1,24 @@
+# Nunca enviar segredos ou artefatos locais para o build
+.env
+.env.*
+!.env.example
+.git
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+apps/worker-media/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+apps/render/out
+e2e/playwright
+e2e/playwright-report
+e2e/test-results
+storage
+tmp
+*.mp4
+*.wav
+.claude/settings.local.json

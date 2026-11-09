@@ -1,0 +1,29 @@
+# Caddy — proxy reverso com HTTPS automático (Let's Encrypt) para o painel.
+# DOMAIN e ACME_EMAIL vêm do .env da VPS.
+{
+	email {$ACME_EMAIL}
+	admin 127.0.0.1:2019
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Opcional (Fase 8): liberar só para a VPN Tailscale (100.64.0.0/10).
+	# @fora_da_vpn not remote_ip 100.64.0.0/10
+	# respond @fora_da_vpn 403
+
+	reverse_proxy web:3000
+
+	log {
+		output stdout
+		format json
+	}
+}

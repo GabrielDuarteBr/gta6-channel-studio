@@ -1,0 +1,166 @@
+# =====================================================================
+# Radar Neon — pilha de PRODUÇÃO (VPS Ubuntu 24.04, Fase 8)
+# Imagens prontas do GitHub Container Registry; segredos só no .env da VPS (600).
+#
+# Portas: SOMENTE o Caddy publica (80 e 443). Portas publicadas pelo Docker
+# passam por fora do UFW, então nenhum outro serviço tem `ports`.
+# Acesso a algo interno: publique em 127.0.0.1 e use túnel SSH.
+# =====================================================================
+name: radar-neon
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: '10m', max-file: '5' }
+
+x-app-env: &app-env
+  APP_PROFILE: vps
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SIMULATION_MODE: ${SIMULATION_MODE:-true}
+  TZ: America/Sao_Paulo
+  DATABASE_URL: postgresql://${POSTGRES_USER:-studio}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:-studio}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
+  S3_ENDPOINT: http://s3:8333
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:-studio}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+  TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?}
+  AGENTS_URL: http://agents:4100
+  RENDER_URL: http://render:4200
+  MEDIA_URL: http://worker-media:4300
+  S3_HEALTH_URL: http://s3:8333/healthz
+
+x-restart: &restart
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      DOMAIN: ${DOMAIN:?defina DOMAIN no .env da VPS}
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:2019/config/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy: { resources: { limits: { cpus: '0.5', memory: 256M } } }
+    <<: *restart
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-studio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-studio}
+      TZ: America/Sao_Paulo
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy: { resources: { limits: { cpus: '1.0', memory: 1G } } }
+    <<: *restart
+
+  redis:
+    image: redis:8-alpine
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD:?} --appendonly yes
+      --maxmemory 400mb --maxmemory-policy noeviction
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy: { resources: { limits: { cpus: '0.5', memory: 512M } } }
+    <<: *restart
+
+  s3:
+    image: chrislusf/seaweedfs:4.53
+    entrypoint: ['/bin/sh', '/start.sh']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+      S3_BUCKET: ${S3_BUCKET:-studio}
+    volumes:
+      - s3data:/data
+      - ./seaweedfs/start.sh:/start.sh:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8333/healthz']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy: { resources: { limits: { cpus: '1.0', memory: 1G } } }
+    <<: *restart
+
+  migrate:
+    image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-agents:${IMAGE_TAG:-latest}
+    working_dir: /app/packages/db
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+    logging: *logging
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-web:${IMAGE_TAG:-latest}
+    environment:
+      <<: *app-env
+      AUTH_SECRET: ${AUTH_SECRET:?}
+      AUTH_URL: https://${DOMAIN:?}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '1.0', memory: 1G } } }
+    <<: *restart
+
+  agents:
+    image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-agents:${IMAGE_TAG:-latest}
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '2.0', memory: 2G } } }
+    <<: *restart
+
+  render:
+    image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-render:${IMAGE_TAG:-latest}
+    environment: *app-env
+    volumes: [mediawork:/data/work]
+    shm_size: 2gb
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy: { resources: { limits: { cpus: '4.0', memory: 5G } } }
+    <<: *restart
+
+  worker-media:
+    image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-worker-media:${IMAGE_TAG:-latest}
+    environment:
+      APP_PROFILE: vps
+      TZ: America/Sao_Paulo
+    volumes: [mediawork:/data/work]
+    deploy: { resources: { limits: { cpus: '3.0', memory: 3G } } }
+    <<: *restart
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pgdata:
+  redisdata:
+  s3data:
+  mediawork:

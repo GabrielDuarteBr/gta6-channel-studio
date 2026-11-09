@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'fase-*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node (lint, tipos, testes)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: studio
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: studio_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U studio" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://studio:ci-only@localhost:5432/studio_test
+      TEST_REDIS_URL: redis://localhost:6379/1
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Sem ferramentas de download do YouTube (Regra 1)
+        run: pnpm check:forbidden
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm turbo run typecheck
+      - run: pnpm turbo run test
+      - name: Build do painel
+        run: pnpm --filter @studio/web build
+
+  python:
+    name: Python (worker-media)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/worker-media
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --frozen --python 3.11
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+
+  secrets:
+    name: Varredura de segredos (gitleaks)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: >-
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1
+          detect --source /repo --config /repo/.gitleaks.toml --redact --no-banner
+
+  e2e:
+    name: E2E do painel (pilha Docker isolada)
+    runs-on: ubuntu-24.04
+    needs: [node]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Testes de ponta a ponta
+        run: make e2e
+      - name: Relatório do Playwright
+        if: failure()
+        run: docker compose -p radar-neon-test -f infra/docker-compose.yml -f infra/docker-compose.test.yml --env-file infra/test.env logs --tail=200
+      - if: always()
+        run: make test-down
+
+  images:
+    name: Imagem ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    needs: [node, python, secrets]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: web, file: infra/docker/node.Dockerfile }
+          - { target: agents, file: infra/docker/node.Dockerfile }
+          - { target: render, file: infra/docker/node.Dockerfile }
+          - { target: worker-media, file: infra/docker/worker-media.Dockerfile }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Login no GHCR (só na main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/radar-neon-${{ matrix.target }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
