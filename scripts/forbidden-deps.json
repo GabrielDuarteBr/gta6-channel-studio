@@ -1,0 +1,19 @@
+{
+  "_comment": "Dependências proibidas: ferramentas de download do YouTube (Regra inegociável 1). O CI falha se alguma aparecer.",
+  "npm": [
+    "ytdl-core",
+    "@distube/ytdl-core",
+    "@ybd-project/ytdl-core",
+    "ytdl-core-discord",
+    "youtube-dl-exec",
+    "youtube-dl",
+    "yt-dlp-wrap",
+    "yt-dlp-exec",
+    "play-dl",
+    "youtubei.js",
+    "node-youtube-dl",
+    "ytdlp-nodejs"
+  ],
+  "python": ["yt-dlp", "yt_dlp", "youtube-dl", "youtube_dl", "pytube", "pytubefix", "pafy", "youtube-dlc"],
+  "binaries": ["yt-dlp", "youtube-dl"]
+}

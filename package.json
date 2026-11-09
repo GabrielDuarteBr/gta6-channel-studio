@@ -1,0 +1,38 @@
+{
+  "name": "gta6-channel-studio",
+  "private": true,
+  "description": "Radar Neon — estúdio automatizado de notícias de GTA 6 apresentado pelo personagem Zeca Neon",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:forbidden": "node scripts/check-forbidden-deps.mjs",
+    "db:generate": "pnpm --filter @studio/db generate",
+    "db:migrate": "pnpm --filter @studio/db migrate:dev",
+    "db:deploy": "pnpm --filter @studio/db migrate:deploy",
+    "owner:create": "pnpm --filter @studio/db owner:create"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.4.5",
+    "@types/node": "22.20.5",
+    "eslint": "10.14.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
+  }
+}

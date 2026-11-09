@@ -1,0 +1,149 @@
+// Radar Neon — schema do banco.
+// Fase 0: núcleo (dono do painel, configurações, auditoria, jobs, custos, cota, OAuth).
+// As tabelas de pauta, parceiros, biblioteca, produção etc. entram nas fases seguintes.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Único usuário do painel (o dono do canal). Login com senha + TOTP.
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  /// Segredo TOTP cifrado com AES-256-GCM (TOKEN_ENCRYPTION_KEY).
+  totpSecretEnc      String
+  /// Hashes argon2 dos códigos de recuperação ainda não usados.
+  recoveryCodeHashes String[]
+  /// Último time step TOTP aceito (impede reutilizar o mesmo código).
+  lastTotpStep       Int?
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+/// Configurações editáveis no painel (chave → JSON validado com zod em @studio/shared).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+enum AuditOutcome {
+  OK
+  DENIED
+  ERROR
+}
+
+/// Trilha de auditoria: toda ação relevante do dono, dos agentes e do sistema.
+model AuditLog {
+  id      String       @id @default(cuid())
+  at      DateTime     @default(now())
+  /// "owner" | "agent:<nome>" | "system" | "scheduler"
+  actor   String
+  /// ex.: "auth.login", "settings.update", "policy.violation"
+  action  String
+  target  String?
+  outcome AuditOutcome @default(OK)
+  details Json?
+
+  @@index([at])
+  @@index([action, at])
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  INTERRUPTED
+  CANCELLED
+}
+
+/// Espelho dos jobs do BullMQ. O id é o jobId determinístico (idempotência).
+model JobRun {
+  id         String    @id
+  queue      String
+  name       String
+  status     JobStatus @default(QUEUED)
+  attempts   Int       @default(0)
+  payload    Json?
+  result     Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([queue, status])
+  @@index([status, updatedAt])
+}
+
+/// Custos de API (Claude, TTS, imagem) por tarefa. Base do teto diário/mensal.
+model CostLedger {
+  id               String   @id @default(cuid())
+  at               DateTime @default(now())
+  /// AAAA-MM-DD em America/Sao_Paulo
+  dayKey           String
+  /// "anthropic" | "tts" | "image"
+  provider         String
+  model            String?
+  /// ex.: "agent:roteirista"
+  task             String
+  jobRunId         String?
+  inputTokens      Int?
+  outputTokens     Int?
+  cacheReadTokens  Int?
+  cacheWriteTokens Int?
+  /// Caracteres de TTS, número de imagens etc.
+  units            Float?
+  costUsd          Decimal  @db.Decimal(12, 6)
+  simulated        Boolean  @default(false)
+
+  @@index([dayKey])
+  @@index([provider, dayKey])
+}
+
+/// Uso da cota da YouTube Data API por balde. A cota zera à meia-noite do Pacífico.
+model QuotaLedger {
+  id         String   @id @default(cuid())
+  at         DateTime @default(now())
+  /// AAAA-MM-DD em America/Los_Angeles
+  pacificDay String
+  /// "search.list" | "videos.insert" | "default"
+  bucket     String
+  method     String
+  units      Int
+  simulated  Boolean  @default(false)
+  jobRunId   String?
+
+  @@index([pacificDay, bucket])
+}
+
+/// Tokens OAuth (Google/YouTube), sempre cifrados.
+model OAuthToken {
+  id              String    @id @default(cuid())
+  provider        String
+  accountLabel    String
+  scopes          String[]
+  accessTokenEnc  String?
+  refreshTokenEnc String
+  expiresAt       DateTime?
+  /// "ok" | "invalid" | "revoked"
+  status          String    @default("ok")
+  lastCheckedAt   DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([provider, accountLabel])
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": ["tsconfig.base.json"],
+  "globalPassThroughEnv": ["DATABASE_URL", "REDIS_URL", "APP_PROFILE", "NODE_ENV"],
+  "tasks": {
+    "generate": {
+      "cache": false
+    },
+    "build": {
+      "dependsOn": ["^build", "generate"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^generate", "generate"]
+    },
+    "test": {
+      "dependsOn": ["^generate", "generate"],
+      "passThroughEnv": ["TEST_DATABASE_URL", "TEST_REDIS_URL"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
