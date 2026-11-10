@@ -326,9 +326,14 @@ if out=$(docker version --format '{{.Server.Version}}' 2>&1); then
   echo "  [OK] Docker Engine $out respondendo dentro do Ubuntu"
   exit 0
 fi
-echo "  Erro: $(echo "$out" | grep -m1 -iE 'error|denied|cannot|connect' || echo "$out" | head -1)"
-case "$out" in *"ermission denied"*) exit 3 ;; esac
-case "$real" in *docker-desktop*) exit 4 ;; *) exit 5 ;; esac
+echo "  Erro: $(echo "$out" | grep -m1 -iE 'error|denied|cannot|connect|found' || echo "$out" | head -1)"
+case "$out" in
+  *"ermission denied"*) exit 3 ;;
+  *"could not be found in this WSL"*|*"WSL integration"*) exit 4 ;;  # integração desligada
+esac
+# Só é "Docker do apt" se o binário pertencer a um pacote instalado no Ubuntu.
+if dpkg -S "$real" >/dev/null 2>&1; then exit 5; fi
+exit 4
 '@
 
 $LinuxAddDockerGroup = @'
@@ -604,33 +609,61 @@ Write-Ok 'Docker Engine ligado'
 # ----------------------------------------------------------------- 8. Docker dentro do Ubuntu
 Write-Step 'Testando o Docker dentro do Ubuntu'
 $dockerOk = $false
-for ($attempt = 1; ($attempt -le 3) -and (-not $dockerOk); $attempt++) {
+$autoWaits = 0
+$manualTries = 0
+$aptRemoved = $false
+$groupFixed = $false
+while (-not $dockerOk) {
   $code = Invoke-LinuxScript -Name 'docker-check.sh' -Content $LinuxDockerCheck
-  if ($code -eq 0) {
-    $dockerOk = $true
-  } elseif ($code -eq 3) {
+  if ($code -eq 0) { $dockerOk = $true; break }
+
+  if (($code -eq 3) -and (-not $groupFixed)) {
+    $groupFixed = $true
     Write-Info 'Dando ao seu usuário acesso ao Docker...'
     $null = Invoke-LinuxScript -Name 'grupo-docker.sh' -Content $LinuxAddDockerGroup -AsRoot -Values @{ USER = $script:LinuxUser }
     & wsl.exe --terminate $script:Distro | Out-Null
-  } elseif ($code -eq 5) {
+    continue
+  }
+
+  if (($code -eq 5) -and (-not $aptRemoved)) {
+    $aptRemoved = $true
     Write-Attention 'Existe um Docker instalado DENTRO do Ubuntu (pelo apt). Ele briga com o Docker Desktop.'
     if (-not (Read-YesNo 'Remover esse Docker do Ubuntu e usar o do Docker Desktop? (seus arquivos não são apagados)' $true)) {
       Stop-Install 'Sem remover o Docker do apt, a integração com o Docker Desktop não funciona.'
     }
     $null = Invoke-LinuxScript -Name 'remover-docker-apt.sh' -Content $LinuxRemoveAptDocker -AsRoot
-    Stop-DockerDesktop
     & wsl.exe --terminate $script:Distro | Out-Null
-    Start-DockerDesktop
-    $null = Wait-DockerEngine 300
-  } else {
-    Write-Info 'Reiniciando o Ubuntu para o Docker Desktop instalar a integração...'
-    & wsl.exe --terminate $script:Distro | Out-Null
-    Start-Sleep -Seconds 15
+    continue
   }
+
+  # Integração ainda não ativa: às vezes leva um pouco para o Docker Desktop instalá-la no Ubuntu.
+  if ($autoWaits -lt 3) {
+    $autoWaits++
+    Write-Info "A integração pode levar até um minuto para chegar ao Ubuntu. Aguardando ($autoWaits/3)..."
+    & wsl.exe --terminate $script:Distro | Out-Null
+    Start-Sleep -Seconds 20
+    continue
+  }
+
+  # Não pegou sozinho: guia para ligar pela tela do Docker Desktop (2 cliques).
+  $manualTries++
+  if ($manualTries -gt 3) { break }
+  Write-Host ''
+  Write-Attention 'Falta ligar a integração na tela do Docker Desktop (vou abrir para você):'
+  Write-Info '  1. MAXIMIZE a janela do Docker Desktop (com ela estreita, a opção some).'
+  Write-Info '  2. Clique na engrenagem (Settings, no alto à direita) e depois em "Resources".'
+  Write-Info '  3. Na coluna da DIREITA da página, clique em "WSL integration".'
+  Write-Info "  4. Ligue 'Enable integration with my default WSL distro' e a chave '$($script:Distro)'."
+  Write-Info '  5. Clique em "Apply & restart" e espere "Engine running" no canto inferior esquerdo.'
+  Start-DockerDesktop
+  $null = Read-Host '  Quando terminar, aperte Enter aqui para eu testar de novo'
+  & wsl.exe --terminate $script:Distro | Out-Null
+  $null = Wait-DockerEngine 180
+  Start-Sleep -Seconds 10
 }
 if (-not $dockerOk) {
-  Stop-Install ('O Docker ainda não responde dentro do Ubuntu. Abra o Docker Desktop > Settings > Resources > ' +
-    "WSL integration, ative $($script:Distro), clique Apply & restart e rode o instalador de novo.")
+  Stop-Install ('O Docker ainda não responde dentro do Ubuntu. Mande para o Claude um print da tela ' +
+    'Docker Desktop > Settings > Resources > WSL integration (janela maximizada) e o log.')
 }
 
 # ----------------------------------------------------------------- 9. Projeto
