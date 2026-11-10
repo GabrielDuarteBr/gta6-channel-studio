@@ -14,6 +14,9 @@ echo "Radar Neon — checagem do ambiente"
 echo
 
 echo "Sistema"
+if [[ "${WSL_DISTRO_NAME:-}" == docker-desktop* ]] || [[ "$(hostname)" == docker-desktop* ]]; then
+  fail "você está na distro interna do Docker Desktop. Abra o 'Ubuntu 24.04' (menu Iniciar) ou rode 'wsl -d Ubuntu-24.04' no PowerShell."
+fi
 if grep -qi microsoft /proc/version 2>/dev/null; then
   ok "rodando no WSL ($(. /etc/os-release && echo "$PRETTY_NAME"))"
   if [[ "$(uname -r)" == *WSL2* ]] || grep -qi "wsl2" /proc/version; then ok "WSL 2"; else warn "não confirmei WSL 2 (rode 'wsl -l -v' no PowerShell)"; fi

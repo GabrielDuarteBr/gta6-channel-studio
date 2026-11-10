@@ -23,6 +23,16 @@ Tudo do projeto roda **dentro do Ubuntu no WSL 2**, em containers Linux — os m
    ```
    A coluna `VERSION` do Ubuntu-24.04 deve mostrar **2**. Se mostrar 1:
    `wsl --set-version Ubuntu-24.04 2`.
+6. Deixe o Ubuntu como padrão do WSL (senão o comando `wsl` abre a distro interna do Docker):
+   ```powershell
+   wsl --set-default Ubuntu-24.04
+   ```
+
+> ⚠️ **Confira se está no Ubuntu certo.** O Docker Desktop instala uma distro interna chamada
+> `docker-desktop`. Ela **não serve** para o projeto (não tem `sudo`, `apt`, `git` nem `make`).
+> Se o terminal mostrar `docker-desktop:~#`, feche e abra o **Ubuntu 24.04** pelo menu Iniciar ou
+> rode `wsl -d Ubuntu-24.04` no PowerShell. No Ubuntu certo o prompt fica assim:
+> `seu_usuario@NOME-DO-PC:~$`.
 
 ## 2. Limitar a memória e as CPUs do WSL (.wslconfig)
 
