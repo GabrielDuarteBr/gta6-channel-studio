@@ -24,3 +24,6 @@ Makefile text eol=lf
 *.woff2 binary
 *.zip binary
 *.pdf binary
+
+# Scripts do Windows: o cmd.exe exige CRLF; guardados como estão (sem normalizar)
+*.bat -text

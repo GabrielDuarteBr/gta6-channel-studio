@@ -7,6 +7,43 @@ Tudo do projeto roda **dentro do Ubuntu no WSL 2**, em containers Linux — os m
 
 ---
 
+## Jeito rápido: instalador automático (recomendado)
+
+O arquivo `windows/instalar-radar-neon.bat` faz todos os passos deste guia sozinho: WSL 2,
+Ubuntu 24.04, `.wslconfig`, Docker Desktop **e a integração do Docker com o Ubuntu**, ferramentas,
+download do projeto, `make setup`, `make up`, seu login com 2FA e, se quiser, o aceite da Fase 0.
+Pode rodar quantas vezes precisar: ele confere cada passo antes de mudar algo e continua de onde
+parou.
+
+**Como abrir o instalador**
+
+- **Se o projeto já está no seu Ubuntu** (o seu caso): no terminal do Ubuntu rode
+  ```bash
+  cd ~/projetos/gta6-channel-studio && git pull && explorer.exe windows
+  ```
+  Vai abrir uma pasta do Windows: dê **dois cliques** em `instalar-radar-neon.bat`.
+- **Num PC do zero**: no GitHub, abra `windows/instalar-radar-neon.bat` → botão **Download raw
+  file** → dê dois cliques no arquivo baixado. Se o Windows mostrar "O Windows protegeu o
+  computador", clique em **Mais informações → Executar assim mesmo**.
+
+**Durante a instalação**
+
+- Ele pede permissão de administrador (clique **Sim**).
+- Algumas perguntas são de sim/não: Enter aceita a opção em maiúscula (`[S/n]` = sim).
+- O GitHub pode pedir login: o usuário é `GabrielDuarteBr` e a senha é um **token** (veja o passo 5).
+  Se o Git para Windows estiver instalado, o login abre no navegador.
+- No fim aparece o **QR code do 2FA** no terminal: escaneie com o app autenticador.
+- Se ele pedir para reiniciar o Windows, reinicie e dê dois cliques no `.bat` de novo.
+- O registro de tudo fica em `C:\Users\<você>\radar-neon-instalador.log`.
+- O resultado do aceite vai para a sua Área de Trabalho (`radar-neon-aceite-fase-0.txt`).
+
+Ele também liga o **início automático do Docker Desktop** junto com o Windows (o estúdio volta
+sozinho depois de reiniciar). Dá para desligar em Docker Desktop → Settings → General.
+
+Os passos manuais abaixo continuam valendo se preferir fazer à mão ou se algo der errado.
+
+---
+
 ## 1. Ativar o WSL 2 com Ubuntu 24.04 (PowerShell)
 
 1. Clique com o botão direito no menu Iniciar → **Terminal (Admin)** ou **Windows PowerShell (Admin)**.
@@ -53,12 +90,7 @@ Windows.
    memory=10GB
    processors=12
    swap=8GB
-
-   [experimental]
-   autoMemoryReclaim=gradual
    ```
-   > Se a sua versão do WSL avisar que `autoMemoryReclaim` mudou de seção, mova a linha para
-   > `[wsl2]` — a documentação da Microsoft é a referência.
 4. Aplique:
    ```powershell
    wsl --shutdown
