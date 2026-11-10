@@ -47,6 +47,7 @@ New-Item -ItemType Directory -Force -Path $Work | Out-Null
 $LogFile = Join-Path $env:USERPROFILE 'radar-neon-instalador.log'
 try { Start-Transcript -Path $LogFile -Append | Out-Null } catch { }
 
+# Caminhos reais são descobertos no passo 6 (Find-DockerDesktop); estes são só o padrão.
 $DockerDesktopExe = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
 $DockerCli = Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin\docker.exe'
 $DockerSettingsFiles = @(
@@ -140,6 +141,73 @@ function Invoke-LinuxScript {
 function Get-LinuxScriptOutput([string]$Name, [string]$Content, [hashtable]$Values) {
   $wslPath = Save-LinuxScript $Name $Content $Values
   return Remove-Nul (& wsl.exe -d $script:Distro --exec bash $wslPath 2>$null)
+}
+# Pastas onde o Docker Desktop pode estar: processo aberto, registro de programas
+# instalados (máquina e usuário), pastas conhecidas e docker.exe no PATH.
+function Get-DockerDesktopCandidates {
+  $dirs = New-Object System.Collections.Generic.List[string]
+  Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.Path) { $dirs.Add((Split-Path -Parent $_.Path)) }
+  }
+  $uninstallKeys = @(
+    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+  )
+  foreach ($key in $uninstallKeys) {
+    Get-ItemProperty -Path $key -ErrorAction SilentlyContinue |
+      Where-Object { $_.DisplayName -like 'Docker Desktop*' } |
+      ForEach-Object {
+        foreach ($value in @($_.InstallLocation, $_.DisplayIcon, $_.UninstallString)) {
+          if (-not $value) { continue }
+          $path = ([string]$value -split ',')[0].Trim().Trim('"')
+          if ($path -match '^(.+?\.exe)') { $path = Split-Path -Parent $Matches[1] }
+          if ($path) { $dirs.Add($path) }
+        }
+      }
+  }
+  foreach ($base in @($env:ProgramFiles, $env:ProgramW6432, (Join-Path $env:LOCALAPPDATA 'Programs'), $env:LOCALAPPDATA)) {
+    if ($base) {
+      $dirs.Add((Join-Path $base 'Docker\Docker'))
+      $dirs.Add((Join-Path $base 'Docker'))
+      $dirs.Add((Join-Path $base 'DockerDesktop'))
+    }
+  }
+  $cmd = Get-Command docker.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $cmd.Source)))) }
+  return $dirs
+}
+function Find-DockerDesktop {
+  $exes = @(Get-DockerDesktopCandidates | ForEach-Object { Join-Path $_ 'Docker Desktop.exe' })
+  # Último recurso: procura o executável nas pastas de programas (até 3 níveis).
+  foreach ($root in @($env:ProgramFiles, (Join-Path $env:LOCALAPPDATA 'Programs'))) {
+    if ($root -and (Test-Path -LiteralPath $root)) {
+      $exes += @(Get-ChildItem -LiteralPath $root -Filter 'Docker Desktop.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.FullName })
+    }
+  }
+  foreach ($exe in $exes) {
+    if ($exe -and (Test-Path -LiteralPath $exe)) {
+      $script:DockerDesktopExe = (Resolve-Path -LiteralPath $exe).Path
+      $cli = Join-Path (Split-Path -Parent $script:DockerDesktopExe) 'resources\bin\docker.exe'
+      if (-not (Test-Path -LiteralPath $cli)) {
+        $onPath = Get-Command docker.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($onPath) { $cli = $onPath.Source }
+      }
+      $script:DockerCli = $cli
+      return $true
+    }
+  }
+  return $false
+}
+function Write-DockerDiagnostics {
+  Write-Info 'Diagnóstico (vai para o log):'
+  foreach ($dir in (Get-DockerDesktopCandidates | Select-Object -Unique)) {
+    $mark = if (Test-Path -LiteralPath $dir) { 'existe' } else { 'não existe' }
+    Write-Info "    $dir  ($mark)"
+  }
+  $where = & where.exe docker 2>$null
+  if ($where) { $where | ForEach-Object { Write-Info "    docker no PATH: $_" } }
 }
 function Test-DockerEngine {
   if (-not (Test-Path $DockerCli)) { return $false }
@@ -458,7 +526,11 @@ if (Test-Path $wslConfigPath) {
   Write-Info 'Seu .wslconfig atual:'
   ($current -split "`r?`n") | Where-Object { $_ -ne '' } | ForEach-Object { Write-Info "    $_" }
   $hasLimits = ($current -match '(?m)^\s*memory\s*=') -and ($current -match '(?m)^\s*processors\s*=')
-  $writeConfig = Read-YesNo "Trocar pelo recomendado (memory=${memGB}GB, processors=$procs, swap=8GB)?" (-not $hasLimits)
+  if (($current -replace '\s', '') -eq ($desired -replace '\s', '')) {
+    $writeConfig = $false   # já está com o recomendado: não mexe (e não reinicia o WSL)
+  } else {
+    $writeConfig = Read-YesNo "Trocar pelo recomendado (memory=${memGB}GB, processors=$procs, swap=8GB)?" (-not $hasLimits)
+  }
 }
 if ($writeConfig) {
   if (Test-Path $wslConfigPath) { Copy-Item $wslConfigPath "$wslConfigPath.bak-radar-neon-$(Get-Date -Format yyyyMMdd-HHmmss)" }
@@ -471,8 +543,8 @@ if ($writeConfig) {
 
 # ----------------------------------------------------------------- 6. Docker Desktop
 Write-Step 'Docker Desktop'
-if (-not (Test-Path $DockerDesktopExe)) {
-  Write-Info 'O Docker Desktop não está instalado. Ele é gratuito para uso pessoal.'
+if (-not (Find-DockerDesktop)) {
+  Write-Info 'Não encontrei o Docker Desktop. Ele é gratuito para uso pessoal.'
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Start-Process 'https://www.docker.com/products/docker-desktop/'
     Stop-Install 'Instale o Docker Desktop pelo site que abri (marque "Use WSL 2") e rode o instalador de novo.'
@@ -481,12 +553,14 @@ if (-not (Test-Path $DockerDesktopExe)) {
     Stop-Install 'O Docker Desktop é necessário.'
   }
   & winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements
-  if (-not (Test-Path $DockerDesktopExe)) {
-    Stop-Install 'O Docker Desktop não terminou de instalar. Reinicie o Windows e rode o instalador de novo.'
+  if (-not (Find-DockerDesktop)) {
+    Write-DockerDiagnostics
+    Stop-Install ('O winget diz que o Docker Desktop está instalado, mas não achei o programa. Abra o Docker Desktop ' +
+      'pelo menu Iniciar (deixe aberto) e rode o instalador de novo; se continuar, mande o log para o Claude.')
   }
   Write-Attention 'Se o instalador do Docker pediu para sair da conta ou reiniciar, faça isso e rode este instalador de novo.'
 }
-Write-Ok 'Docker Desktop instalado'
+Write-Ok "Docker Desktop: $DockerDesktopExe"
 
 # ----------------------------------------------------------------- 7. Integração Docker <-> Ubuntu
 Write-Step "Ligando o Docker Desktop ao $($script:Distro)"
