@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner reset test test-down e2e render-test build-prod accept-0
+.PHONY: help setup wsl-check up down restart logs ps owner reset test test-down e2e render-test build-prod accept-0 diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -29,7 +29,7 @@ wsl-check: ## Confere WSL 2, Docker, memória, pasta do projeto e fim de linha
 	@echo "❌ .env não encontrado. Rode: make setup" && exit 1
 
 up: .env ## Sobe tudo (constrói as imagens e espera os serviços ficarem saudáveis)
-	$(COMPOSE) up -d --build --wait
+	@$(COMPOSE) up -d --build --wait || { bash scripts/diagnose.sh; exit 1; }
 	@echo ""
 	@echo "✅ Painel em http://localhost:3000  (primeira vez? rode: make owner)"
 
@@ -83,3 +83,6 @@ build-prod: ## Constrói as imagens de produção (as mesmas que vão para o GHC
 
 accept-0: ## Roda todos os critérios de aceite da Fase 0
 	@bash scripts/accept-0.sh
+
+diagnose: ## Mostra por que algum serviço não está saudável (estado, teste de saúde e logs)
+	@bash scripts/diagnose.sh

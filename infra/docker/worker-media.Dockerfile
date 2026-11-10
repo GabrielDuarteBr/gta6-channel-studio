@@ -25,8 +25,9 @@ COPY apps/worker-media/app ./app
 RUN useradd --create-home --uid 1001 media && mkdir -p /data/work && chown -R media:media /data
 USER media
 EXPOSE 4300
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:4300/health', timeout=4).status==200 else 1)"
+# O teste ignora proxy de propósito: o Docker Desktop repassa o proxy do Windows aos containers.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD python -c "import urllib.request as u,sys; sys.exit(0 if u.build_opener(u.ProxyHandler({})).open('http://127.0.0.1:4300/health', timeout=4).status==200 else 1)"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4300", "--no-server-header"]
 
 # ---------------------------------------------------------------- test (pytest + ruff)

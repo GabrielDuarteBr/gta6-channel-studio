@@ -29,6 +29,9 @@ x-app-env: &app-env
   RENDER_URL: http://render:4200
   MEDIA_URL: http://worker-media:4300
   S3_HEALTH_URL: http://s3:8333/healthz
+  # Tráfego interno nunca passa por proxy (o Docker Desktop repassa o proxy do Windows).
+  NO_PROXY: localhost,127.0.0.1,postgres,redis,s3,web,agents,render,worker-media
+  no_proxy: localhost,127.0.0.1,postgres,redis,s3,web,agents,render,worker-media
 
 x-build: &build
   context: ..
@@ -151,6 +154,8 @@ services:
     environment:
       APP_PROFILE: ${APP_PROFILE:-notebook}
       TZ: America/Sao_Paulo
+      NO_PROXY: localhost,127.0.0.1
+      no_proxy: localhost,127.0.0.1
     volumes: [mediawork:/data/work]
     deploy: { resources: { limits: { cpus: '2.0', memory: 2G } } }
     restart: unless-stopped
