@@ -9,7 +9,8 @@ COPY infra/docker/with-ca.sh /usr/local/bin/with-ca
 RUN --mount=type=secret,id=extra_ca,required=false \
     with-ca pip install --no-cache-dir uv==0.11.32
 
-FROM ${UBUNTU_IMAGE} AS worker-media
+# ---------------------------------------------------------------- runtime (servidor)
+FROM ${UBUNTU_IMAGE} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive TZ=America/Sao_Paulo \
     UV_PYTHON_INSTALL_DIR=/opt/python UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv PATH=/opt/venv/bin:$PATH
@@ -31,7 +32,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4300", "--no-server-header"]
 
 # ---------------------------------------------------------------- test (pytest + ruff)
-FROM worker-media AS test
+FROM runtime AS test
 USER root
 RUN --mount=type=secret,id=extra_ca,required=false \
     with-ca uv sync --frozen --python 3.11
@@ -40,3 +41,7 @@ COPY apps/worker-media/pyproject.toml ./
 USER media
 ENV RUFF_NO_CACHE=true
 CMD ["sh", "-c", "ruff check . && ruff format --check . && pytest -q -p no:cacheprovider"]
+
+# ---------------------------------------------------------------- worker-media (padrão)
+# Última etapa = imagem usada quando ninguém escolhe um alvo: sempre o servidor.
+FROM runtime AS worker-media

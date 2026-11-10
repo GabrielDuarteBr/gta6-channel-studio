@@ -149,6 +149,7 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/worker-media.Dockerfile
+      target: worker-media
       secrets: [extra_ca]
     image: radar-neon/worker-media:local
     environment:
