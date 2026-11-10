@@ -403,7 +403,11 @@ echo
 make setup || exit 1
 echo
 echo "  Subindo o estúdio. Na primeira vez ele constrói as imagens: 10 a 30 minutos."
-make up
+if ! make up; then
+  dest=@@DEST@@
+  [ -f diagnostico.txt ] && cp diagnostico.txt "$dest" 2>/dev/null && echo "  Diagnóstico salvo em: $dest"
+  exit 1
+fi
 '@
 
 $LinuxOwnerCount = @'
@@ -686,9 +690,10 @@ if ((Invoke-LinuxScript -Name 'projeto.sh' -Content $LinuxProject -Values $proje
 
 # ----------------------------------------------------------------- 10. Subir o estúdio
 Write-Step 'Subindo o estúdio (make setup + make up)'
-if ((Invoke-LinuxScript -Name 'subir.sh' -Content $LinuxStack -Values @{ PROJECT = $ProjectRel }) -ne 0) {
-  Stop-Install ('O "make up" falhou. No Ubuntu, rode: cd ~/projetos/gta6-channel-studio && make ps ' +
-    '(e "make logs s=<serviço>" no que estiver com problema). Mande a saída para o Claude.')
+$diagCopy = Join-Path ([Environment]::GetFolderPath('Desktop')) 'radar-neon-diagnostico.txt'
+if ((Invoke-LinuxScript -Name 'subir.sh' -Content $LinuxStack -Values @{ PROJECT = $ProjectRel; DEST = (ConvertTo-WslPath $diagCopy) }) -ne 0) {
+  Stop-Install ("O `"make up`" falhou. Mande para o Claude o arquivo da sua Área de Trabalho: $diagCopy " +
+    '(se ele não existir, mande um print desta janela rolando um pouco para cima).')
 }
 Write-Ok 'estúdio no ar'
 

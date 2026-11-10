@@ -58,3 +58,7 @@ Thumbs.db
 # CA extra local (proxy corporativo)
 infra/docker/extra-ca.local.pem
 !infra/docker/no-extra-ca.pem
+
+# Saída do make diagnose
+diagnostico.txt
+accept-0.log

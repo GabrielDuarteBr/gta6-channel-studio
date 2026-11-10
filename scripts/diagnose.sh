@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 compose_file=${1:-infra/docker-compose.yml}
 env_file=${2:-.env}
 dc() { docker compose -f "$compose_file" --env-file "$env_file" "$@"; }
+out_file=${DIAGNOSE_OUT:-diagnostico.txt}
+exec > >(tee "$out_file") 2>&1
 
 echo
 echo "================= DIAGNÓSTICO (mande isto para o Claude) ================="
@@ -30,3 +32,4 @@ for svc in $(dc ps -a --services 2>/dev/null); do
   dc logs --no-color --tail=40 "$svc" 2>&1
 done
 echo "=========================================================================="
+echo "(salvo também em $out_file)"
