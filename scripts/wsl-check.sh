@@ -42,14 +42,27 @@ for bin in git make curl openssl; do
   command -v "$bin" >/dev/null && ok "$bin" || fail "$bin não instalado (sudo apt install -y $bin)"
 done
 if command -v docker >/dev/null; then
-  ok "docker CLI"
-  if docker info >/dev/null 2>&1; then
+  docker_path=$(readlink -f "$(command -v docker)")
+  ok "docker CLI ($docker_path)"
+  case "$docker_path" in
+    /mnt/wsl/docker-desktop*|*/docker-desktop/*|/mnt/c/*) ;;
+    *) warn "este docker não parece ser o do Docker Desktop (pode ter sido instalado pelo apt/snap e brigar com ele)" ;;
+  esac
+  if docker_err=$(docker info 2>&1 >/dev/null); then
     ok "Docker respondendo ($(docker info --format '{{.OperatingSystem}}' 2>/dev/null))"
     docker compose version >/dev/null 2>&1 && ok "docker compose $(docker compose version --short)" || fail "docker compose ausente"
     dmem=$(docker info --format '{{.MemTotal}}' 2>/dev/null)
     [[ -n "$dmem" ]] && echo "  ℹ️  Docker pode usar $(awk "BEGIN {printf \"%.1f\", $dmem/1024/1024/1024}") GB"
   else
-    fail "Docker não responde. Abra o Docker Desktop e ative a integração com esta distro (Settings → Resources → WSL integration)."
+    fail "Docker não responde."
+    echo "     Erro: $(grep -m1 -iE 'error|denied|cannot|refused' <<<"$docker_err" || echo "$docker_err" | head -1)"
+    if grep -qi 'permission denied' <<<"$docker_err"; then
+      echo "     Seu usuário não tem acesso ao Docker. Rode: sudo usermod -aG docker \$USER"
+      echo "     Depois feche e abra o Ubuntu de novo."
+    else
+      echo "     Abra o Docker Desktop (espere 'Engine running') e confira em Settings → Resources →"
+      echo "     WSL integration se esta distro está ativada. Depois rode 'wsl --shutdown' no PowerShell."
+    fi
   fi
 else
   fail "docker não encontrado. Instale o Docker Desktop no Windows com backend WSL 2."
