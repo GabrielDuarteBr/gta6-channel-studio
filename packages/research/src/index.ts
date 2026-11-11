@@ -7,5 +7,6 @@ export * from './fetchers/youtube';
 export * from './relevance';
 export * from './score';
 export * from './text';
+export * from './triage';
 export * from './types';
 export * from './url';

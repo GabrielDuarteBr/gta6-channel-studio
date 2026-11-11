@@ -1,4 +1,5 @@
 /** Tipos compartilhados da pesquisa de notícias. */
+import type { ContentFlags } from '@studio/policy';
 
 export type SourceKind = 'RSS' | 'PAGE' | 'YOUTUBE_CHANNEL' | 'YOUTUBE_SEARCH';
 export type SourceTier = 'OFFICIAL' | 'PRESS' | 'COMMUNITY';
@@ -30,7 +31,7 @@ export interface CollectedItem extends RawItem {
   domain: string;
   normalizedTitle: string;
   isRumor: boolean;
-  flags: import('@studio/policy').ContentFlags;
+  flags: ContentFlags;
 }
 
 export const TIER_WEIGHT: Record<SourceTier, number> = {

@@ -7,12 +7,15 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "collect-now": "tsx src/scripts/collect-now.ts"
   },
   "dependencies": {
     "@studio/db": "workspace:*",
+    "@studio/llm": "workspace:*",
     "@studio/policy": "workspace:*",
     "@studio/queue": "workspace:*",
+    "@studio/research": "workspace:*",
     "@studio/shared": "workspace:*",
     "tsx": "4.23.15"
   }

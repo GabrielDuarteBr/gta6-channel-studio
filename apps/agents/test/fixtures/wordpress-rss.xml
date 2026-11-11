@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <title>Rockstar Intel</title>
+  <link>https://www.rockstarintel.com</link>
+  <item>
+    <title>GTA 6 Trailer 3 Is Coming Next Week, Rockstar Confirms</title>
+    <link>https://www.rockstarintel.com/gta-6-trailer-3-next-week/?utm_source=rss&amp;utm_medium=rss</link>
+    <dc:creator><![CDATA[Ricky]]></dc:creator>
+    <pubDate>Mon, 09 Nov 2026 14:00:00 +0000</pubDate>
+    <guid isPermaLink="false">https://www.rockstarintel.com/?p=1001</guid>
+    <description><![CDATA[<p>Rockstar Games confirmed the third trailer for <strong>Grand Theft Auto VI</strong>&#8230;</p>]]></description>
+  </item>
+  <item>
+    <title>Red Dead Redemption 2 gets a surprise patch</title>
+    <link>https://www.rockstarintel.com/rdr2-patch/</link>
+    <pubDate>Mon, 09 Nov 2026 10:00:00 +0000</pubDate>
+    <description>RDR2 update notes.</description>
+  </item>
+  <item>
+    <title>GTA 6 leaked footage: what we know</title>
+    <link>https://www.rockstarintel.com/gta-6-leaked-footage/</link>
+    <pubDate>Sun, 08 Nov 2026 20:00:00 +0000</pubDate>
+    <description>An insider claims new footage surfaced.</description>
+  </item>
+</channel>
+</rss>
