@@ -14,6 +14,6 @@ export function testPrisma(): PrismaClient {
 
 export async function resetDb(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "User", "Setting", "AuditLog", "JobRun", "CostLedger", "QuotaLedger", "OAuthToken" CASCADE',
+    'TRUNCATE "User", "Setting", "AuditLog", "JobRun", "CostLedger", "QuotaLedger", "OAuthToken", "NewsItem", "Story", "Source" CASCADE',
   );
 }

@@ -39,6 +39,15 @@ export const SETTINGS = {
 
   'render.resolution': z.enum(['auto', '720p', '1080p']).default('auto'),
 
+  /** Pesquisa de notícias (Fase 1). */
+  research: z
+    .object({
+      intervalMinutes: z.number().int().min(10).max(1440),
+      windowHours: z.number().int().min(12).max(336),
+      youtubeSearchesPerDay: z.number().int().min(0).max(20),
+    })
+    .default({ intervalMinutes: 30, windowHours: 72, youtubeSearchesPerDay: 4 }),
+
   antiSpoiler: z
     .object({
       launchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

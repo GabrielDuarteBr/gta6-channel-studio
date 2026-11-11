@@ -149,3 +149,121 @@ model OAuthToken {
 
   @@unique([provider, accountLabel])
 }
+
+// ============================================================================
+// Fase 1 — Pesquisa (fontes, notícias coletadas e histórias agrupadas)
+// ============================================================================
+
+enum SourceKind {
+  /// Feed RSS/Atom (ou página com autodescoberta de feed)
+  RSS
+  /// Página HTML sem feed: extrai links de artigos por padrão de URL
+  PAGE
+  /// Canal do YouTube (só metadados, via Data API)
+  YOUTUBE_CHANNEL
+  /// Busca no YouTube (só metadados; usa o balde caro search.list)
+  YOUTUBE_SEARCH
+}
+
+enum SourceTier {
+  /// Rockstar, Take-Two: prioridade máxima
+  OFFICIAL
+  /// Imprensa de games consolidada
+  PRESS
+  /// Sites de fãs, criadores e comunidade (rumores aparecem aqui)
+  COMMUNITY
+}
+
+model Source {
+  id            String     @id @default(cuid())
+  /// Chave estável das fontes padrão (null nas fontes criadas pelo dono)
+  key           String?    @unique
+  name          String
+  kind          SourceKind
+  tier          SourceTier
+  /// URL do feed/página, @handle do canal ou termo de busca
+  url           String
+  /// Regex de links de artigo (PAGE) e outros ajustes por tipo
+  config        Json?
+  language      String     @default("en")
+  enabled       Boolean    @default(true)
+  builtIn       Boolean    @default(false)
+  /// Feed descoberto automaticamente, canal resolvido etc.
+  resolved      Json?
+  etag          String?
+  lastModified  String?
+  lastFetchedAt DateTime?
+  lastOkAt      DateTime?
+  /// "ok" | "erro" | "sem chave" | "sem novidades"
+  lastStatus    String?
+  lastError     String?
+  lastItemCount Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  items         NewsItem[]
+}
+
+model NewsItem {
+  id             String    @id @default(cuid())
+  sourceId       String
+  source         Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// URL canônica (sem utm etc.) — deduplicação entre fontes
+  url            String    @unique
+  /// Domínio registrável (independência de fontes para rumores)
+  domain         String
+  title          String
+  summary        String?
+  author         String?
+  publishedAt    DateTime?
+  fetchedAt      DateTime  @default(now())
+  normalizedTitle String
+  /// Sinais de engajamento (YouTube: views, likes...)
+  metrics        Json?
+  /// Bandeiras de política detectadas no texto (vazamento, trapaça, spoiler...)
+  flags          Json?
+  isRumor        Boolean   @default(false)
+  storyId        String?
+  story          Story?    @relation(fields: [storyId], references: [id], onDelete: SetNull)
+
+  @@index([storyId])
+  @@index([publishedAt])
+}
+
+enum StoryStatus {
+  NEW
+  QUEUED_LONG
+  QUEUED_SHORT
+  QUEUED_COMPILATION
+  DISMISSED
+}
+
+model Story {
+  id                 String      @id @default(cuid())
+  title              String
+  /// Título/resumo em PT-BR (triagem do Claude Haiku ou o próprio título)
+  titlePt            String?
+  summaryPt          String?
+  firstSeenAt        DateTime    @default(now())
+  lastSeenAt         DateTime    @default(now())
+  score              Float       @default(0)
+  scoreBreakdown     Json?
+  itemCount          Int         @default(0)
+  independentSources Int         @default(0)
+  officialCount      Int         @default(0)
+  isRumor            Boolean     @default(false)
+  /// Bandeiras de política agregadas (vazamento, spoiler...)
+  flags              Json?
+  /// "oficial" | "reportagem" | "rumor" | "vazamento" | "opinião" | "guia"
+  kind               String?
+  newsworthiness     Float?
+  triagedAt          DateTime?
+  status             StoryStatus @default(NEW)
+  statusChangedAt    DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  items              NewsItem[]
+
+  @@index([score])
+  @@index([lastSeenAt])
+  @@index([status])
+}

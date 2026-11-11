@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Big Games Press</title>
+  <entry>
+    <title type="html">Rockstar confirms GTA 6 trailer 3 arrives next week</title>
+    <link rel="alternate" href="https://press.example.com/news/gta-6-trailer-3#comments"/>
+    <published>2026-11-09T15:30:00Z</published>
+    <author><name>Jane</name></author>
+    <summary>The third trailer for Grand Theft Auto VI is dated.</summary>
+  </entry>
+  <entry>
+    <title>Ten best indie games of the month</title>
+    <link href="https://press.example.com/news/indies"/>
+    <updated>2026-11-09T12:00:00Z</updated>
+  </entry>
+  <entry>
+    <title>GTA VI price reportedly set at $80, insiders claim</title>
+    <link href="https://press.example.com/news/gta-vi-price"/>
+    <published>2026-11-09T09:00:00Z</published>
+  </entry>
+</feed>
