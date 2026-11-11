@@ -180,6 +180,27 @@ fim mostra ✅/❌ por critério. Me mande a saída.
 
 ## 9. Fase 1: pesquisa de notícias
 
+### Jeito rápido: `windows/rodar-fase-1.bat` (recomendado)
+
+Dê **dois cliques** no `rodar-fase-1.bat` (não precisa de administrador). Ele faz os passos 9.1 a
+9.5 sozinho:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop (abre o Docker se estiver fechado);
+2. troca o projeto para a versão da Fase 1. Se algum arquivo do projeto estiver alterado, ele
+   guarda a alteração com `git stash` antes; nada é apagado;
+3. pede a chave do YouTube e, se você quiser, a da Anthropic. A chave fica escondida (aparece `*`),
+   é testada na hora (o teste do YouTube gasta 1 das 10.000 unidades grátis do dia; o da Anthropic
+   é gratuito) e é gravada só no `.env`, nunca no log;
+4. roda o `make accept-1` e copia o resultado para a Área de Trabalho
+   (`radar-neon-aceite-fase-1.txt`);
+5. abre a Pauta no navegador.
+
+Para colar a chave na janela preta: **botão direito do mouse** ou **Ctrl+V**, depois **Enter**.
+Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações → Executar
+assim mesmo**. O registro fica em `C:\Users\<você>\radar-neon-fase-1.log`.
+
+Os passos abaixo são o mesmo caminho, feito à mão.
+
 ### 9.1 Atualizar o projeto (Ubuntu)
 
 ```bash
