@@ -61,7 +61,13 @@ export function buildTriagePrompt(stories: TriageStoryInput[]): string {
   return `Histórias para triagem (JSON):\n${JSON.stringify(stories, null, 1)}`;
 }
 
-/** Triagem do modo simulado: regras simples, sem chamar a API. */
+const TIER_ORDER = ['OFFICIAL', 'PRESS', 'COMMUNITY'];
+function tierRank(tier: string): number {
+  const i = TIER_ORDER.indexOf(tier);
+  return i === -1 ? TIER_ORDER.length : i;
+}
+
+/** Triagem do modo simulado (sem custo): usa as manchetes originais. */
 export function fakeTriage(stories: TriageStoryInput[]): TriageResult {
   return {
     stories: stories.map((s) => {
@@ -69,7 +75,8 @@ export function fakeTriage(stories: TriageStoryInput[]): TriageResult {
       const leak = s.items.some((i) => i.leak);
       const rumor = !official && s.items.every((i) => i.isRumor);
       const kind = leak ? 'vazamento' : official ? 'oficial' : rumor ? 'rumor' : 'reportagem';
-      const first = s.items[0];
+      // Mesma regra da manchete da história: a fonte de maior nível primeiro.
+      const first = [...s.items].sort((a, b) => tierRank(a.tier) - tierRank(b.tier))[0];
       return {
         id: s.id,
         titlePt: first?.title.slice(0, 110) ?? '(sem título)',

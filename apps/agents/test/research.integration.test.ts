@@ -130,6 +130,7 @@ d('pipeline de pesquisa (integração com Postgres)', () => {
     const official = await prisma.story.findFirstOrThrow({ where: { officialCount: { gt: 0 } } });
     expect(official.kind).toBe('oficial');
     expect(official.triagedAt).not.toBeNull();
+    expect(official.titlePt).toBe('Grand Theft Auto VI: Watch Trailer 3 Now'); // manchete oficial
   });
 
   it('cria as fontes padrão uma vez e respeita o que o dono mudou', async () => {

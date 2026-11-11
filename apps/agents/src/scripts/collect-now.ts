@@ -42,7 +42,7 @@ const sources = await prisma.source.findMany({
 console.log('\nFonte                               Estado          GTA6  Erro');
 for (const s of sources) {
   console.log(
-    `${s.name.slice(0, 35).padEnd(36)}${(s.lastStatus ?? '—').padEnd(16)}${String(s.lastItemCount ?? 0).padStart(4)}  ${(s.lastError ?? '').slice(0, 90)}`,
+    `${s.name.slice(0, 35).padEnd(36)}${(s.lastStatus ?? '—').padEnd(16)}${(s.lastStatus === 'ok' ? String(s.lastItemCount ?? 0) : '—').padStart(4)}  ${(s.lastError ?? '').slice(0, 90)}`,
   );
 }
 

@@ -28,7 +28,10 @@ test('pauta: virar longo, aparecer na fila e desfazer (com auditoria)', async ({
   const queued = page.getByTestId('historia').filter({ hasText: 'Trailer 3' }).first();
   await expect(queued.getByText('Vídeo longo')).toBeVisible();
   await queued.getByRole('button', { name: 'Desfazer' }).click();
-  await expect(queued.getByRole('status')).toContainText('voltou para novas');
+  // Desfeita, ela sai da fila e volta para a pauta com os botões de promover.
+  await expect(page.getByTestId('historia').filter({ hasText: 'Trailer 3' })).toHaveCount(0);
+  const back = await findStory(page, 'Trailer 3');
+  await expect(back.getByRole('button', { name: 'Virar longo' })).toBeEnabled();
 
   await page.goto('/saude');
   await expect(page.getByRole('cell', { name: 'story.status' }).first()).toBeVisible();

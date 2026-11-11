@@ -235,6 +235,11 @@ export default async function PautaPage({
               settings.antiSpoiler,
             );
             const breakdown = s.scoreBreakdown as Record<string, number> | null;
+            // O tipo da triagem só aparece quando acrescenta algo aos outros selos.
+            const redundantKind =
+              (s.kind === 'oficial' && s.officialCount > 0) ||
+              (s.kind === 'rumor' && s.isRumor) ||
+              (s.kind === 'vazamento' && Boolean(flags.leak));
             const activeFlags = Object.entries(flags)
               .filter(([, v]) => v)
               .map(([k]) => FLAG_LABEL[k] ?? k);
@@ -261,7 +266,7 @@ export default async function PautaPage({
                       {!s.isRumor && s.officialCount === 0 ? (
                         <Badge tone="info">Imprensa</Badge>
                       ) : null}
-                      {s.kind ? <Badge>{s.kind}</Badge> : null}
+                      {s.kind && !redundantKind ? <Badge>{s.kind}</Badge> : null}
                       {activeFlags.map((f) => (
                         <Badge key={f} tone="error">
                           {f}
@@ -279,7 +284,9 @@ export default async function PautaPage({
                     {s.titlePt && s.titlePt !== s.title ? (
                       <p className="text-xs text-haze-500">{s.title}</p>
                     ) : null}
-                    {s.summaryPt ? <p className="text-sm text-haze-300">{s.summaryPt}</p> : null}
+                    {s.summaryPt && s.summaryPt !== (s.titlePt ?? s.title) ? (
+                      <p className="text-sm text-haze-300">{s.summaryPt}</p>
+                    ) : null}
                     <ul className="space-y-1 text-xs">
                       {s.items.map((it) => (
                         <li key={it.id} className="flex items-start gap-1.5 text-haze-400">
