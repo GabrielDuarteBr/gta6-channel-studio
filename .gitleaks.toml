@@ -13,4 +13,6 @@ paths = [
 regexes = [
   '''JBSWY3DPEHPK3PXP''',
   '''test-only-[a-z-]+''',
+  # senhas fictícias dos testes (packages/db/test, e2e): "senha-…-muito-forte-…"
+  '''senha-[a-z0-9-]*muito-forte[a-z0-9-]*''',
 ]
