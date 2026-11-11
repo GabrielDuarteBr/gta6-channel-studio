@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import { NAV } from '@/lib/nav';
+import { BUILT_THROUGH_PHASE, NAV } from '@/lib/nav';
 import { Badge } from './ui/card';
 
 export interface ShellProps {
@@ -51,7 +51,7 @@ export function Shell({
               )}
             />
             <span className="flex-1">{item.label}</span>
-            {item.phase > 0 ? (
+            {item.phase > BUILT_THROUGH_PHASE ? (
               <span className="text-[10px] text-haze-500">F{item.phase}</span>
             ) : null}
           </Link>

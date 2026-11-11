@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { effectiveState } from '@/server/effective';
 import { checkAll } from '@/server/health';
+import { researchStatus } from '@/server/research';
 
 export const metadata: Metadata = { title: 'Saúde e custos' };
 
@@ -17,7 +18,7 @@ const fmtTime = new Intl.DateTimeFormat('pt-BR', {
 export default async function HealthPage() {
   const prisma = getPrisma();
   const today = channelDay();
-  const [checks, audit, costToday, quotaToday, state] = await Promise.all([
+  const [checks, audit, costToday, quotaToday, state, research] = await Promise.all([
     checkAll(),
     prisma.auditLog.findMany({ orderBy: { at: 'desc' }, take: 25 }),
     prisma.costLedger.aggregate({ _sum: { costUsd: true }, where: { dayKey: today } }),
@@ -27,8 +28,11 @@ export default async function HealthPage() {
       where: { pacificDay: youtubeQuotaDay() },
     }),
     effectiveState(),
+    researchStatus(),
   ]);
   const spentToday = Number(costToday._sum.costUsd ?? 0);
+  const quotaUnits = quotaToday.find((q) => q.bucket === 'default')?._sum.units ?? 0;
+  const searchCalls = quotaToday.find((q) => q.bucket === 'search.list')?._sum.units ?? 0;
   const allOk = checks.every((c) => c.status === 'ok');
 
   return (
@@ -70,9 +74,17 @@ export default async function HealthPage() {
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-haze-400">Cota YouTube usada</dt>
-              <dd className="font-semibold text-white">
-                {quotaToday.reduce((s, q) => s + (q._sum.units ?? 0), 0)} unidades
+              <dt className="text-haze-400">Cota YouTube (dia do Pacífico)</dt>
+              <dd className="text-right font-semibold text-white" data-testid="cota-youtube">
+                {quotaUnits} unid. · {searchCalls} buscas
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-haze-400">Coleta de notícias</dt>
+              <dd className="text-right text-white" data-testid="coleta-saude">
+                {research.lastRun?.finishedAt
+                  ? `${research.lastRun.status === 'SUCCEEDED' ? 'ok' : 'falhou'} às ${new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(research.lastRun.finishedAt)}`
+                  : 'ainda não rodou'}
               </dd>
             </div>
             <div className="flex justify-between">

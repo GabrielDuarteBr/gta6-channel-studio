@@ -11,7 +11,7 @@ import {
 import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
 import { runResearch } from './research/pipeline';
-import { COLLECT_JOB, ensureResearchSchedule } from './research/schedule';
+import { COLLECT_JOB, ensureResearchSchedule, RESEARCH_SCHEDULER_ID } from './research/schedule';
 import { seedDefaultSources } from './research/sources';
 
 const log = createLogger('agents');
@@ -44,8 +44,15 @@ async function main(): Promise<void> {
   if (seeded > 0) log.info({ seeded }, 'fontes padrão criadas');
   const researchQueue = createQueue('research', connection);
   let intervalMinutes = (await getAllSettings(prisma)).research.intervalMinutes;
-  const schedule = await ensureResearchSchedule(researchQueue, prisma, intervalMinutes);
-  log.info({ intervalMinutes, catchUp: schedule.catchUp }, 'coleta de notícias agendada');
+  // RESEARCH_SCHEDULE=off só na pilha de testes: sem coleta automática (a manual continua).
+  const autoSchedule = process.env.RESEARCH_SCHEDULE !== 'off';
+  if (autoSchedule) {
+    const schedule = await ensureResearchSchedule(researchQueue, prisma, intervalMinutes);
+    log.info({ intervalMinutes, catchUp: schedule.catchUp }, 'coleta de notícias agendada');
+  } else {
+    await researchQueue.removeJobScheduler(RESEARCH_SCHEDULER_ID);
+    log.warn('coleta automática desligada (RESEARCH_SCHEDULE=off)');
+  }
 
   const pipelineCtx = {
     prisma,
@@ -64,7 +71,7 @@ async function main(): Promise<void> {
         const summary = await runResearch(pipelineCtx);
         // Se o intervalo mudou nas Configurações, reagenda.
         const current = (await getAllSettings(prisma)).research.intervalMinutes;
-        if (current !== intervalMinutes) {
+        if (autoSchedule && current !== intervalMinutes) {
           intervalMinutes = current;
           await ensureResearchSchedule(researchQueue, prisma, intervalMinutes);
         }

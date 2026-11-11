@@ -37,7 +37,7 @@ $OutputEncoding = New-Object System.Text.UTF8Encoding $false
 $env:WSL_UTF8 = '1'
 
 $RepoUrl = 'https://github.com/GabrielDuarteBr/gta6-channel-studio.git'
-$Branch = 'fase-0-fundacao'
+$Branch = 'main'
 $PreferredDistro = 'Ubuntu-24.04'
 $ProjectRel = 'projetos/gta6-channel-studio'
 
@@ -439,10 +439,15 @@ $LinuxAccept = @'
 #!/usr/bin/env bash
 set -o pipefail
 cd "$HOME/"@@PROJECT@@ || exit 1
-dest=@@DEST@@
-make accept-0 2>&1 | tee accept-0.log
+desk=@@DESKDIR@@
+# Aceite da fase mais recente que existe nesta versão do projeto.
+n=$(ls scripts/accept-*.sh 2>/dev/null | sed -E 's/.*accept-([0-9]+)\.sh/\1/' | sort -n | tail -1)
+n=${n:-0}
+echo "  Aceite da Fase $n"
+make "accept-$n" 2>&1 | tee "accept-$n.log"
 code=${PIPESTATUS[0]}
-cp accept-0.log "$dest" 2>/dev/null || echo "  [!] não consegui copiar o resultado para $dest"
+dest="$desk/radar-neon-aceite-fase-$n.txt"
+if cp "accept-$n.log" "$dest" 2>/dev/null; then echo "  Resultado salvo em $dest"; else echo "  [!] não consegui copiar o resultado para $dest"; fi
 exit "$code"
 '@
 
@@ -735,13 +740,12 @@ Write-Ok 'Painel aberto no navegador: http://localhost:3000'
 Write-Info 'Comandos do dia a dia (no Ubuntu, dentro de ~/projetos/gta6-channel-studio):'
 Write-Info '  make ps · make logs s=web · make down · make up'
 Write-Host ''
-if (Read-YesNo 'Rodar agora o aceite da Fase 0 (testes completos, 20 a 40 minutos)?' $true) {
+if (Read-YesNo 'Rodar agora o aceite da fase atual (testes completos, 20 a 40 minutos)?' $true) {
   $desktop = [Environment]::GetFolderPath('Desktop')
-  $acceptCopy = Join-Path $desktop 'radar-neon-aceite-fase-0.txt'
-  $code = Invoke-LinuxScript -Name 'aceite.sh' -Content $LinuxAccept -Values @{ PROJECT = $ProjectRel; DEST = (ConvertTo-WslPath $acceptCopy) }
+  $code = Invoke-LinuxScript -Name 'aceite.sh' -Content $LinuxAccept -Values @{ PROJECT = $ProjectRel; DESKDIR = (ConvertTo-WslPath $desktop) }
   Write-Host ''
-  if ($code -eq 0) { Write-Ok 'aceite da Fase 0 passou!' } else { Write-Attention 'algum critério do aceite falhou (veja acima).' }
-  Write-Info "Resultado salvo em: $acceptCopy  -> mande esse arquivo para o Claude."
+  if ($code -eq 0) { Write-Ok 'o aceite passou!' } else { Write-Attention 'algum critério do aceite falhou (veja acima).' }
+  Write-Info "Resultado salvo na Área de Trabalho ($desktop), arquivo radar-neon-aceite-fase-N.txt -> mande esse arquivo para o Claude."
 }
 Write-Host ''
 Write-Info "Log da instalação: $LogFile"

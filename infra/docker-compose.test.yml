@@ -12,6 +12,13 @@ services:
   web:
     ports: !override ['127.0.0.1:3100:3000']
 
+  # Sem coleta automática nem chaves reais: os testes usam dados de demonstração.
+  agents:
+    environment:
+      RESEARCH_SCHEDULE: 'off'
+      YOUTUBE_API_KEY: ''
+      ANTHROPIC_API_KEY: ''
+
   # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
   tests:
     build:

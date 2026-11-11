@@ -8,8 +8,11 @@ test('visão geral mostra o canal, o personagem e o modo simulado', async ({ pag
 });
 
 test('todas as telas do menu abrem', async ({ page }) => {
+  for (const path of ['/pauta', '/pauta/fontes']) {
+    const res = await page.goto(path);
+    expect(res?.status(), path).toBe(200);
+  }
   for (const path of [
-    '/pauta',
     '/producao',
     '/aprovacao',
     '/calendario',

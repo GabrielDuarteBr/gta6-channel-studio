@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner reset test test-down e2e render-test build-prod accept-0 diagnose
+.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ ps: ## Estado e saúde dos serviços
 owner: .env ## Cria/recria o dono do painel (e-mail, senha e 2FA)
 	$(COMPOSE) exec agents node_modules/.bin/tsx /app/packages/db/scripts/create-owner.ts
 
+coletar: .env ## Coleta notícias agora e mostra o resultado por fonte
+	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/collect-now.ts
+
 reset: ## APAGA banco, filas e arquivos locais (pede confirmação)
 	@read -r -p "Isso apaga banco, filas e arquivos locais do notebook. Digite APAGAR para confirmar: " c; \
 	  if [ "$$c" != "APAGAR" ]; then echo "Cancelado."; exit 1; fi
@@ -65,6 +68,7 @@ e2e: ## Testes de ponta a ponta do painel (pilha isolada em 127.0.0.1:3100)
 	  -e OWNER_EMAIL=dono-e2e@radarneon.local -e OWNER_PASSWORD=senha-e2e-muito-forte \
 	  -e OWNER_TOTP_SECRET=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP \
 	  agents node_modules/.bin/tsx /app/packages/db/scripts/create-owner.ts > /dev/null
+	$(TEST_COMPOSE) exec -T -e DEMO_SEED=1 agents node_modules/.bin/tsx src/scripts/seed-demo-pauta.ts
 	$(TEST_COMPOSE) run --rm --build e2e
 
 test-down: ## Derruba e apaga a pilha isolada de testes
@@ -83,6 +87,9 @@ build-prod: ## Constrói as imagens de produção (as mesmas que vão para o GHC
 
 accept-0: ## Roda todos os critérios de aceite da Fase 0
 	@bash scripts/accept-0.sh
+
+accept-1: .env ## Todos os critérios de aceite da Fase 1 (Pesquisa); ESPERAR=1 espera a coleta automática
+	@bash scripts/accept-1.sh
 
 diagnose: ## Mostra por que algum serviço não está saudável (estado, teste de saúde e logs)
 	@bash scripts/diagnose.sh

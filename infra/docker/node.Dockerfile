@@ -44,6 +44,8 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/policy/package.json packages/policy/
 COPY packages/db/package.json packages/db/
 COPY packages/queue/package.json packages/queue/
+COPY packages/research/package.json packages/research/
+COPY packages/llm/package.json packages/llm/
 COPY e2e/package.json e2e/
 RUN --mount=type=secret,id=extra_ca,required=false \
     --mount=type=cache,id=pnpm-store,target=/pnpm/store \

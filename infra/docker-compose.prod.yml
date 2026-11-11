@@ -134,7 +134,11 @@ services:
 
   agents:
     image: ghcr.io/${GHCR_OWNER:-gabrielduartebr}/radar-neon-agents:${IMAGE_TAG:-latest}
-    environment: *app-env
+    environment:
+      <<: *app-env
+      # Chaves das APIs (vazias = a pesquisa pula o YouTube e a triagem usa o modo simulado).
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }

@@ -12,6 +12,7 @@ export default async function SettingsPage() {
   const budget = settings.budget;
   const spoiler = settings.antiSpoiler;
   const identity = settings['channel.identity'];
+  const research = settings.research;
 
   return (
     <>
@@ -151,6 +152,48 @@ export default async function SettingsPage() {
                 min={0}
                 max={365}
                 defaultValue={spoiler.windowDays}
+              />
+            </div>
+          </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="research"
+          title="Pesquisa de notícias"
+          description="Frequência da coleta, janela da pauta e buscas diárias no YouTube (cada busca usa o balde caro da cota)."
+        >
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="intervalMinutes">A cada (min)</Label>
+              <Input
+                id="intervalMinutes"
+                name="intervalMinutes"
+                type="number"
+                min={10}
+                max={1440}
+                defaultValue={research.intervalMinutes}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="windowHours">Janela (h)</Label>
+              <Input
+                id="windowHours"
+                name="windowHours"
+                type="number"
+                min={12}
+                max={336}
+                defaultValue={research.windowHours}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="youtubeSearchesPerDay">Buscas YouTube/dia</Label>
+              <Input
+                id="youtubeSearchesPerDay"
+                name="youtubeSearchesPerDay"
+                type="number"
+                min={0}
+                max={20}
+                defaultValue={research.youtubeSearchesPerDay}
               />
             </div>
           </div>

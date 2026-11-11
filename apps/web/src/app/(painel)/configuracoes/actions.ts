@@ -35,6 +35,12 @@ function valueFor(key: SettingKey, form: FormData): unknown {
         launchDate: String(form.get('launchDate') ?? ''),
         windowDays: num(form, 'windowDays'),
       };
+    case 'research':
+      return {
+        intervalMinutes: num(form, 'intervalMinutes'),
+        windowHours: num(form, 'windowHours'),
+        youtubeSearchesPerDay: num(form, 'youtubeSearchesPerDay'),
+      };
     case 'channel.identity':
       return {
         channelName: String(form.get('channelName') ?? '').trim(),
