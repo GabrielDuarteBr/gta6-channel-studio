@@ -75,7 +75,8 @@ if git config core.autocrlf | grep -qi true; then
 else
   ok "core.autocrlf não converte para CRLF"
 fi
-crlf=$(git ls-files --eol 2>/dev/null | awk '$2 ~ /crlf/ {print $NF}' | head -5)
+# Arquivos marcados -text no .gitattributes (o instalador .bat) usam CRLF de propósito.
+crlf=$(git ls-files --eol 2>/dev/null | awk '$2 ~ /crlf/ && $3 !~ /-text/ {print $NF}' | head -5)
 [[ -z "$crlf" ]] && ok "nenhum arquivo com CRLF no checkout" || fail "arquivos com CRLF: $crlf"
 [[ -f .env ]] && ok ".env presente ($(stat -c %a .env))" || warn ".env ainda não existe (rode make setup)"
 
