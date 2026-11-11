@@ -178,6 +178,88 @@ Ele sobe tudo, testa o painel, roda os testes (Node e Python), o login com 2FA n
 automatizado, um render de teste do Zeca dentro do container e constrói as imagens de produção. No
 fim mostra ✅/❌ por critério. Me mande a saída.
 
+## 9. Fase 1: pesquisa de notícias
+
+### 9.1 Atualizar o projeto (Ubuntu)
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin
+```
+
+```bash
+git checkout fase-1-pesquisa
+```
+
+```bash
+git pull
+```
+
+### 9.2 Chave da YouTube Data API (navegador do Windows, ~5 min, grátis)
+
+A pesquisa só lê **metadados** do YouTube (título, data, visualizações), nunca baixa vídeo.
+
+1. Abra https://console.cloud.google.com e entre com a sua conta Google.
+2. No topo, clique no seletor de projeto → **Novo projeto** → nome `radar-neon` → **Criar**. Confira
+   que ele ficou selecionado no topo.
+3. Menu ☰ → **APIs e serviços** → **Biblioteca** → procure **YouTube Data API v3** → **Ativar**.
+4. Menu ☰ → **APIs e serviços** → **Credenciais** → **Criar credenciais** → **Chave de API**.
+5. Na chave criada, clique em **Editar chave** (ou no nome dela) → em **Restrições de API** escolha
+   **Restringir chave** → marque só **YouTube Data API v3** → **Salvar**.
+6. Copie a chave (começa com `AIza`). **Não cole a chave no chat do Claude.**
+
+Uso estimado: ~500 das 10.000 unidades diárias grátis (as buscas são limitadas a 4 por dia em
+Configurações).
+
+### 9.3 Chave da Anthropic (opcional)
+
+Sem ela, a triagem roda no modo simulado: a pauta funciona, mas os títulos ficam no idioma original
+e sem resumo em português. Com ela, o Claude Haiku traduz, resume, classifica e junta notícias
+repetidas em idiomas diferentes. Custo estimado: **menos de US$ 0,05 por dia**, dentro do teto que
+você definiu.
+
+1. Abra https://console.anthropic.com → **API Keys** → **Create Key** → copie (começa com
+   `sk-ant-`).
+2. Recomendado: em **Billing/Limits**, defina um limite mensal também do lado da Anthropic.
+3. A triagem real só roda com o **modo simulado desligado** (painel → Configurações). Por enquanto
+   isso só afeta a triagem: nada é publicado em fase nenhuma sem a sua aprovação.
+
+### 9.4 Colocar as chaves no `.env` (Ubuntu)
+
+```bash
+nano .env
+```
+
+Ache as linhas `YOUTUBE_API_KEY=` e `ANTHROPIC_API_KEY=` e cole a chave logo depois do `=` (no nano,
+colar é botão direito do mouse ou Ctrl+Shift+V). Salve com **Ctrl+O**, **Enter**, e saia com
+**Ctrl+X**. Não edite o `.env` pelo Bloco de Notas do Windows (ele troca o fim de linha e quebra as
+chaves).
+
+### 9.5 Aceite da Fase 1
+
+```bash
+make accept-1
+```
+
+Ele sobe tudo, faz uma **coleta real** agora (pela fila, igual ao botão "Coletar agora"), confere
+fontes, links, deduplicação, pontuação e o agendamento automático, e roda todos os testes (inclusive
+os da Pauta no navegador). Leva de 20 a 40 minutos. O resultado fica em
+`radar-neon-aceite-fase-1.txt` e uma cópia vai para a sua Área de Trabalho do Windows. Me mande esse
+arquivo.
+
+Para conferir também a coleta automática (espera até 60 min):
+
+```bash
+ESPERAR=1 make accept-1
+```
+
+No painel: **Pauta** mostra as histórias com nota, fontes e links. **Pauta → Gerenciar fontes**
+mostra o estado de cada fonte. Uma fonte com erro pode ter mudado de endereço: corrija ali mesmo.
+Para coletar fora do horário: botão **Coletar agora** ou `make coletar`.
+
 ---
 
 ## Comandos do dia a dia
@@ -189,6 +271,7 @@ fim mostra ✅/❌ por critério. Me mande a saída.
 | `make ps` | estado dos serviços |
 | `make logs s=web` | logs ao vivo de um serviço |
 | `make owner` | recria o login (derruba as sessões abertas) |
+| `make coletar` | coleta notícias agora e mostra o resultado por fonte |
 | `make reset` | **apaga** os dados locais (pede confirmação) |
 
 ## O notebook dormiu ou desligou?

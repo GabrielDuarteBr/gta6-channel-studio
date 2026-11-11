@@ -61,4 +61,5 @@ infra/docker/extra-ca.local.pem
 
 # Saída do make diagnose
 diagnostico.txt
-accept-0.log
+accept-*.log
+radar-neon-aceite-fase-*.txt

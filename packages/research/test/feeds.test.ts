@@ -8,6 +8,7 @@ import {
   FeedParseError,
   looksLikeFeed,
   parseFeed,
+  publicOnlyFetch,
   type FetchLike,
 } from '../src';
 
@@ -149,5 +150,48 @@ describe('collectFeedSource', () => {
     );
     expect(res.status).toBe('erro');
     expect(res.error).toContain('404');
+  });
+});
+
+describe('publicOnlyFetch (coleta real só em endereços públicos)', () => {
+  const ok = (url: string) => new Response('ok', { status: 200, headers: { 'x-url': url } });
+
+  it('busca endereço público e segue redirecionamento público', async () => {
+    const calls: string[] = [];
+    const base: FetchLike = async (u) => {
+      calls.push(u);
+      if (u === 'https://site.com/feed')
+        return new Response(null, { status: 301, headers: { location: '/feed/' } });
+      return ok(u);
+    };
+    const res = await publicOnlyFetch(base)('https://site.com/feed');
+    expect(res.status).toBe(200);
+    expect(calls).toEqual(['https://site.com/feed', 'https://site.com/feed/']);
+  });
+
+  it('recusa endereço interno antes de abrir conexão', async () => {
+    let called = false;
+    const base: FetchLike = async (u) => {
+      called = true;
+      return ok(u);
+    };
+    await expect(publicOnlyFetch(base)('https://169.254.169.254/latest')).rejects.toThrow(
+      /bloqueado/,
+    );
+    await expect(publicOnlyFetch(base)('https://postgres:5432/')).rejects.toThrow(/bloqueado/);
+    expect(called).toBe(false);
+  });
+
+  it('recusa redirecionamento para a rede interna', async () => {
+    const base: FetchLike = async (u) =>
+      u.startsWith('https://site.com')
+        ? new Response(null, { status: 302, headers: { location: 'https://127.0.0.1/admin' } })
+        : ok(u);
+    await expect(publicOnlyFetch(base)('https://site.com/feed')).rejects.toThrow(/127\.0\.0\.1/);
+  });
+
+  it('não trata 304 como redirecionamento', async () => {
+    const base: FetchLike = async () => new Response(null, { status: 304 });
+    expect((await publicOnlyFetch(base)('https://site.com/feed')).status).toBe(304);
   });
 });

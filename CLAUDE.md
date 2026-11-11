@@ -51,6 +51,9 @@ packages/shared    config zod, perfis notebook|vps, settings, logger com redaç�
 packages/policy    regras inegociáveis como funções puras
 packages/db        Prisma 7 (adapter pg), login do dono, settings auditadas
 packages/queue     filas BullMQ, jobId determinístico, registro de jobs
+packages/research  feeds RSS/Atom/RDF, páginas sem feed, YouTube (metadados), URL canônica,
+                   relevância GTA 6, agrupamento por história, pontuação, prompt da triagem
+packages/llm       cliente Claude com saída estruturada (zod), teto de gasto e CostLedger
 e2e                Playwright (pilha isolada)
 infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, SeaweedFS
 ```
@@ -61,6 +64,17 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   (`packages/shared/src/profile.ts`). Todo job tem id determinístico (`deterministicJobId`) e é
   idempotente; jobs `RUNNING` ao subir viram `INTERRUPTED` e o BullMQ os devolve à fila.
 - **Cota do YouTube** conta por dia do Pacífico (`youtubeQuotaDay`); orçamento por dia de Brasília.
+- **Pesquisa (Fase 1)**: fila `research`, job `collect` (uma coleta por vez). Agendada por Job
+  Scheduler (`research-collect`, intervalo em Configurações) + uma coleta de recuperação ao subir se a
+  última ficou velha. Pipeline em `apps/agents/src/research/pipeline.ts`: coleta (GET condicional,
+  ETag) → grava itens (idempotente por URL canônica) → agrupa (similaridade de manchete, limiar 0.42,
+  números conflitantes separam) → atualiza histórias (manchete da fonte de maior nível) → pontua
+  (fonte oficial 1.0, imprensa 0.6, comunidade 0.3, meia-vida 24 h) → triagem com
+  `claude-haiku-5-5` (PT-BR, tipo, relevância, duplicatas entre idiomas; lotes de 15). Com modo
+  simulado ou sem `ANTHROPIC_API_KEY`, a triagem é falsa e custa zero. Promover história passa por
+  `canPromoteStory` (vazamento, trapaça, mods, spoiler na janela, rumor com < 2 fontes). Fontes
+  padrão em `packages/research/src/default-sources.ts` (semeadas uma vez; o dono edita em Pauta →
+  Fontes). **Reddit fora**: a API fechou para apps novos e os feeds RSS desligam em 13/11/2026.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -79,11 +93,16 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make e2e` | Playwright contra pilha isolada em 127.0.0.1:3100 |
 | `make render-test` | render de teste do Zeca no container |
 | `make build-prod` | imagens de produção |
+| `make coletar` | coleta notícias agora (pela fila) e imprime o resultado por fonte |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
+| `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
 | `make reset` | apaga dados locais (pede confirmação) |
 
 Desenvolvimento com Node local (opcional): `pnpm install`, `pnpm lint`, `pnpm turbo run typecheck
-test`. Testes de integração precisam de `TEST_DATABASE_URL` e `TEST_REDIS_URL`.
+test`. Testes de integração precisam de `TEST_DATABASE_URL` e `TEST_REDIS_URL` (cada pacote usa o
+banco `<nome>_<pacote>`, criado pelo global-setup, porque o Turbo roda os pacotes em paralelo). O e2e
+usa dados de demonstração (`apps/agents/src/scripts/seed-demo-pauta.ts`, só com `DEMO_SEED=1`) e a
+pilha de testes roda com `RESEARCH_SCHEDULE=off` (sem coleta automática nem rede real).
 `pnpm --filter @studio/db migrate:dev --name <nome>` cria migration (depois rode `pnpm db:generate`;
 o Prisma 7 não gera o cliente sozinho).
 

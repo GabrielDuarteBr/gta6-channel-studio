@@ -8,6 +8,7 @@ import {
   collectFeedSource,
   fakeTriage,
   prepareItems,
+  publicOnlyFetch,
   scoreStory,
   storyTokens,
   TRIAGE_MODEL,
@@ -168,6 +169,8 @@ async function runWithLimit<T>(tasks: Array<() => Promise<T>>, limit: number): P
 /** 1) Coleta todas as fontes ativas. Uma fonte com erro não derruba as outras. */
 export async function collectAll(ctx: PipelineContext): Promise<SourceRunSummary[]> {
   const { prisma } = ctx;
+  // Rede real: só endereços públicos em https, conferindo cada redirecionamento.
+  const net: PipelineContext = { ...ctx, fetchImpl: ctx.fetchImpl ?? publicOnlyFetch() };
   const settings = await getAllSettings(prisma);
   const sources = await prisma.source.findMany({
     where: { enabled: true },
@@ -177,8 +180,8 @@ export async function collectAll(ctx: PipelineContext): Promise<SourceRunSummary
     const now = ctx.now?.() ?? new Date();
     const result =
       source.kind === 'RSS' || source.kind === 'PAGE'
-        ? await collectFeedSource(toSourceRecord(source), ctx.fetchImpl)
-        : await collectYouTube(ctx, source, settings.research.youtubeSearchesPerDay);
+        ? await collectFeedSource(toSourceRecord(source), net.fetchImpl)
+        : await collectYouTube(net, source, settings.research.youtubeSearchesPerDay);
 
     if (result === 'sem chave' || result === 'pulada') {
       await prisma.source.update({

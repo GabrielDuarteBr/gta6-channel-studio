@@ -1,7 +1,7 @@
 'use server';
 
 import { audit, getPrisma } from '@studio/db';
-import { isBlockedMediaHost } from '@studio/policy';
+import { isBlockedMediaHost, isPublicHttpsUrl } from '@studio/policy';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireOwner } from '@/server/session';
@@ -12,13 +12,9 @@ export interface SourceActionState {
   error?: string;
 }
 
+/** https público (fora da rede interna) e fora do YouTube (que só entra pela Data API). */
 function httpsUrlNotYouTube(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === 'https:' && !isBlockedMediaHost(u.hostname);
-  } catch {
-    return false;
-  }
+  return isPublicHttpsUrl(value) && !isBlockedMediaHost(new URL(value).hostname);
 }
 
 const addSchema = z
@@ -45,7 +41,8 @@ const addSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['url'],
-        message: 'Use um endereço https que não seja do YouTube (YouTube só como canal, pela API).',
+        message:
+          'Use um endereço https público que não seja do YouTube (YouTube só como canal, pela API).',
       });
     }
     if (v.kind === 'PAGE' && !v.linkPattern) {
@@ -134,7 +131,7 @@ export async function updateSourceUrlAction(
   const valid = source.kind.startsWith('YOUTUBE')
     ? /^(@[A-Za-z0-9._-]{3,100}|.{2,100})$/.test(url)
     : httpsUrlNotYouTube(url);
-  if (!valid) return { error: 'Endereço inválido (https e fora do YouTube).' };
+  if (!valid) return { error: 'Endereço inválido (https público e fora do YouTube).' };
   // URL nova: zera o feed descoberto e o cache HTTP.
   await prisma.source.update({
     where: { id },
