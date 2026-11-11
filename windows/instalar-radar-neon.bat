@@ -211,11 +211,21 @@ function Write-DockerDiagnostics {
 }
 function Test-DockerEngine {
   if (-not (Test-Path $DockerCli)) { return $false }
+  # SilentlyContinue: o "motor ainda desligado" é esperado aqui e não deve sujar o log.
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = 'SilentlyContinue'
   $null = & $DockerCli info --format '{{.ServerVersion}}' 2>$null
-  return ($LASTEXITCODE -eq 0)
+  $ok = ($LASTEXITCODE -eq 0)
+  $ErrorActionPreference = $previous
+  return $ok
 }
 function Stop-DockerDesktop {
-  if (Test-Path $DockerCli) { $null = & $DockerCli desktop stop 2>$null }
+  if (Test-Path $DockerCli) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    $null = & $DockerCli desktop stop 2>$null
+    $ErrorActionPreference = $previous
+  }
   Start-Sleep -Seconds 3
   Get-Process -Name 'Docker Desktop', 'com.docker.backend', 'com.docker.build' -ErrorAction SilentlyContinue |
     Stop-Process -Force -ErrorAction SilentlyContinue
@@ -244,8 +254,9 @@ set -euo pipefail
 user=@@USER@@
 export DEBIAN_FRONTEND=noninteractive
 echo "  Atualizando a lista de pacotes do Ubuntu (pode levar um minuto)..."
-apt-get update -qq
-apt-get install -y -qq git make curl openssl ca-certificates python3 >/dev/null
+# Espera até 3 min se o Ubuntu estiver atualizando sozinho (apt ocupado).
+apt-get -o DPkg::Lock::Timeout=180 update -qq
+apt-get -o DPkg::Lock::Timeout=180 install -y -qq git make curl openssl ca-certificates python3 >/dev/null
 echo "  [OK] git, make, curl, openssl e python3 instalados"
 if getent group docker >/dev/null && ! id -nG "$user" | tr ' ' '\n' | grep -qx docker; then
   usermod -aG docker "$user"
@@ -353,7 +364,7 @@ for p in docker.io docker-ce docker-ce-cli docker-compose-plugin docker-buildx-p
 done
 if [ -n "$pkgs" ]; then
   systemctl stop docker docker.socket 2>/dev/null || true
-  apt-get remove -y -qq $pkgs >/dev/null && echo "  [OK] removido do Ubuntu:$pkgs (os dados não foram apagados)"
+  apt-get -o DPkg::Lock::Timeout=180 remove -y -qq $pkgs >/dev/null && echo "  [OK] removido do Ubuntu:$pkgs (os dados não foram apagados)"
 else
   echo "  Nenhum pacote docker do apt encontrado."
 fi
@@ -497,7 +508,9 @@ if ((Get-DistroVersion $script:Distro) -eq '1') {
 & wsl.exe --set-default $script:Distro | Out-Null
 Write-Ok "$($script:Distro) é a distro padrão do WSL (versão $(Get-DistroVersion $script:Distro))"
 
+$ErrorActionPreference = 'SilentlyContinue'
 $script:LinuxUser = Remove-Nul (& wsl.exe -d $script:Distro --exec id -un 2>$null) | Select-Object -First 1
+$ErrorActionPreference = 'Continue'
 if (-not $script:LinuxUser -or $script:LinuxUser -eq 'root') {
   Write-Attention 'O Ubuntu está sem usuário comum. Vamos criar um.'
   $suggest = ($env:USERNAME.ToLower() -replace '[^a-z0-9_-]', '')
