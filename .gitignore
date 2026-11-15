@@ -63,6 +63,7 @@ infra/docker/extra-ca.local.pem
 diagnostico.txt
 accept-*.log
 radar-neon-aceite-fase-*.txt
+radar-neon-zeca-teste.mp4
 
 # Render: arquivos gerados na hora do bundle (WASM do Rive copiado do npm, silêncio de exemplo)
 apps/render/public/rive/

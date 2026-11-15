@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 diagnose
+.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 zeca diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -50,6 +50,9 @@ owner: .env ## Cria/recria o dono do painel (e-mail, senha e 2FA)
 
 coletar: .env ## Coleta notícias agora e mostra o resultado por fonte
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/collect-now.ts
+
+zeca: .env ## Clipe de teste do Zeca (voz de teste + boca sincronizada); ROTEIRO="..." para outro texto
+	$(COMPOSE) exec -T -e ROTEIRO agents node_modules/.bin/tsx src/scripts/character-clip.ts $(if $(VERTICAL),--vertical,)
 
 reset: ## APAGA banco, filas e arquivos locais (pede confirmação)
 	@read -r -p "Isso apaga banco, filas e arquivos locais do notebook. Digite APAGAR para confirmar: " c; \
@@ -90,6 +93,9 @@ accept-0: ## Roda todos os critérios de aceite da Fase 0
 
 accept-1: .env ## Todos os critérios de aceite da Fase 1 (Pesquisa); ESPERAR=1 espera a coleta automática
 	@bash scripts/accept-1.sh
+
+accept-2: .env ## Todos os critérios de aceite da Fase 2 (Personagem)
+	@bash scripts/accept-2.sh
 
 diagnose: ## Mostra por que algum serviço não está saudável (estado, teste de saúde e logs)
 	@bash scripts/diagnose.sh

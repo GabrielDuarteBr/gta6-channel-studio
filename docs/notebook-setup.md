@@ -281,6 +281,52 @@ No painel: **Pauta** mostra as histórias com nota, fontes e links. **Pauta → 
 mostra o estado de cada fonte. Uma fonte com erro pode ter mudado de endereço: corrija ali mesmo.
 Para coletar fora do horário: botão **Coletar agora** ou `make coletar`.
 
+## 10. Fase 2: o personagem (Zeca Neon)
+
+Nesta fase não há chave nova. A voz é de **teste** (espeak-ng, robótica e grátis); a voz real entra
+quando você escolher o provedor.
+
+### Jeito rápido: `windows/rodar-fase-2.bat` (recomendado)
+
+Dê **dois cliques** no `rodar-fase-2.bat` (não precisa de administrador). Ele:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop (abre o Docker se estiver fechado);
+2. troca o projeto para a versão da Fase 2 (alterações locais vão para o `git stash`, nada é
+   apagado);
+3. roda o `make accept-2` (de 20 a 40 minutos: a primeira vez reconstrói as imagens, com o Rhubarb
+   e a voz de teste);
+4. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-2.txt`) e **o vídeo do Zeca
+   falando** (`radar-neon-zeca-teste.mp4`);
+5. abre a tela **Personagem** no navegador.
+
+### Pelo Ubuntu (mesmo caminho, à mão)
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin
+```
+
+```bash
+git checkout fase-2-personagem
+```
+
+```bash
+make accept-2
+```
+
+### O que olhar no painel (tela Personagem)
+
+- **Expressões, bocas e gestos**: a arte provisória do Zeca, desenhada pelo estúdio.
+- **Clipe de teste**: escreva o texto com marcações (`[feliz]`, `[surpreso]`, `[aponta_tela]`,
+  `[pausa]`...) e clique em **Gerar clipe de teste**. Em 1 a 3 minutos o vídeo aparece ali mesmo.
+- **Bíblia do personagem**: quem o Zeca é e como fala. Cada vez que você salva, vira uma versão nova;
+  dá para restaurar uma antiga. As 4 regras com cadeado não podem sair.
+
+Para gerar um clipe pelo Ubuntu: `make zeca` (ou `make zeca VERTICAL=1` para Short).
+
 ---
 
 ## Comandos do dia a dia
@@ -293,6 +339,7 @@ Para coletar fora do horário: botão **Coletar agora** ou `make coletar`.
 | `make logs s=web` | logs ao vivo de um serviço |
 | `make owner` | recria o login (derruba as sessões abertas) |
 | `make coletar` | coleta notícias agora e mostra o resultado por fonte |
+| `make zeca` | clipe de teste do Zeca (`VERTICAL=1` para Short) |
 | `make reset` | **apaga** os dados locais (pede confirmação) |
 
 ## O notebook dormiu ou desligou?

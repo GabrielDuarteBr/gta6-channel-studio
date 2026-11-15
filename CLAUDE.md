@@ -54,6 +54,9 @@ packages/queue     filas BullMQ, jobId determinístico, registro de jobs
 packages/research  feeds RSS/Atom/RDF, páginas sem feed, YouTube (metadados), URL canônica,
                    relevância GTA 6, agrupamento por história, pontuação, prompt da triagem
 packages/llm       cliente Claude com saída estruturada (zod), teto de gasto e CostLedger
+packages/avatar    personagem: marcações do roteiro, linha do tempo, piscadas, bíblia (zod) e a
+                   arte em camadas do Zeca (`@studio/avatar/art`, React puro, usada no render e no painel)
+packages/providers provedores plugáveis (voz/TTS; imagem e upload nas próximas fases), com Fake
 e2e                Playwright (pilha isolada)
 infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, SeaweedFS
 ```
@@ -75,6 +78,17 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   `canPromoteStory` (vazamento, trapaça, mods, spoiler na janela, rumor com < 2 fontes). Fontes
   padrão em `packages/research/src/default-sources.ts` (semeadas uma vez; o dono edita em Pauta →
   Fontes). **Reddit fora**: a API fechou para apps novos e os feeds RSS desligam em 13/11/2026.
+- **Personagem (Fase 2)**: roteiro com marcações `[feliz] [surpreso] [serio] [debochado] [bravo]
+  [neutro]`, gestos `[aponta_tela] [aceno]` e `[pausa]`/`[pausa:ms]` → cada trecho vira um áudio
+  (TTS plugável; hoje só a voz de teste espeak-ng) → worker-media junta a trilha com pausas e devolve
+  o tempo de cada trecho → Rhubarb (`-r phonetic --threads 1`, bocas A–H/X) → linha do tempo →
+  composição `ZecaClip` (16:9 ou 9:16). Job `character.clip` na fila `render` (agents). O render é
+  assíncrono (`POST /render` devolve id; `GET /render/<id>`) e serve `/data/work` só na rede interna;
+  o painel vê os vídeos por `/api/media` (só o dono). Chrome em `RENDER_GL=swiftshader`: com `swangle`
+  os quadros variavam 1 unidade entre renders. Regra 7 em código: `assertCharacterLine` recusa o Zeca
+  dizendo que é humano. Bíblia versionada (`CharacterBible`, regras fixas que nenhuma versão remove).
+  Rive: prova de conceito em `docs/fase-2-rive-poc.md` (componente próprio, sem CDN); camadas é o
+  padrão.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -94,8 +108,10 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make render-test` | render de teste do Zeca no container |
 | `make build-prod` | imagens de produção |
 | `make coletar` | coleta notícias agora (pela fila) e imprime o resultado por fonte |
+| `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`) |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
 | `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
+| `make accept-2` | aceite da Fase 2 (clipe 2× com quadros idênticos, Short, testes) |
 | `make reset` | apaga dados locais (pede confirmação) |
 
 Desenvolvimento com Node local (opcional): `pnpm install`, `pnpm lint`, `pnpm turbo run typecheck

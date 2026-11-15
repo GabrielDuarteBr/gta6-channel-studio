@@ -165,7 +165,7 @@ export function ZecaClip({
         style={{
           position: 'absolute',
           left: vertical ? '6%' : '4%',
-          bottom: vertical ? '57%' : '4%',
+          bottom: vertical ? '54%' : '4%',
           fontSize: unit * 2.2,
           background: '#0c061ecc',
           padding: `${unit * 0.6}px ${unit * 1.4}px`,
