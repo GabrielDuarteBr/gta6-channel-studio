@@ -24,7 +24,7 @@ packages/db/src/generated/
 # Remotion / mídia gerada
 apps/render/out/
 apps/render/.remotion/
-storage/
+/storage/
 tmp/
 *.mp4
 *.wav
