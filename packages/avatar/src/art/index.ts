@@ -1,0 +1,1 @@
+export { ZecaArt } from './Zeca';
