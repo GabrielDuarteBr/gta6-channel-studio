@@ -106,6 +106,42 @@ describe('Llm.structured', () => {
     expect(records[0]?.simulated).toBe(false);
   });
 
+  it('Sonnet 5.5: fallback do servidor ligado, imagens aceitas e custo pelo modelo que respondeu', async () => {
+    const parse = vi.fn().mockResolvedValue({
+      model: 'claude-sonnet-5-5',
+      stop_reason: 'end_turn',
+      parsed_output: { answer: 'ok' },
+      usage: { input_tokens: 5000, output_tokens: 1000 },
+    });
+    const plain = vi.fn();
+    const records: LlmCostRecord[] = [];
+    const llm = new Llm({
+      simulation: false,
+      client: { messages: { parse: plain }, beta: { messages: { parse } } } as never,
+      budget: async () => okBudget,
+      record: async (c) => void records.push(c),
+    });
+    await llm.structured({
+      ...baseReq,
+      model: 'claude-sonnet-5-5',
+      effort: 'medium',
+      productionId: 'prod1',
+      user: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } },
+        { type: 'text', text: 'avalie' },
+      ],
+    });
+    expect(plain).not.toHaveBeenCalled();
+    const args = parse.mock.calls[0]?.[0];
+    expect(args.betas).toEqual(['server-side-fallback-2026-07-01']);
+    expect(args.fallbacks).toBe('default');
+    expect(args.output_config.effort).toBe('medium');
+    expect(args.messages[0].content[0].type).toBe('image');
+    // 5k × 2 + 1k × 10 por milhão = 0,02
+    expect(records[0]).toMatchObject({ model: 'claude-sonnet-5-5', productionId: 'prod1' });
+    expect(records[0]?.costUsd).toBeCloseTo(0.02, 6);
+  });
+
   it('não chama a API sem orçamento', async () => {
     const { client, parse } = fakeClient({});
     const llm = new Llm({

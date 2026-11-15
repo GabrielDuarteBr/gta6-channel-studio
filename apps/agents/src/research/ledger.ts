@@ -56,6 +56,7 @@ export function costRecorder(prisma: PrismaClient, provider = 'anthropic') {
         cacheWriteTokens: cost.usage.cache_creation_input_tokens ?? null,
         costUsd: cost.costUsd,
         simulated: cost.simulated,
+        productionId: cost.productionId ?? null,
       },
     });
   };

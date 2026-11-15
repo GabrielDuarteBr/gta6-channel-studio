@@ -48,6 +48,8 @@ COPY packages/research/package.json packages/research/
 COPY packages/llm/package.json packages/llm/
 COPY packages/avatar/package.json packages/avatar/
 COPY packages/providers/package.json packages/providers/
+COPY packages/storage/package.json packages/storage/
+COPY packages/production/package.json packages/production/
 COPY e2e/package.json e2e/
 RUN --mount=type=secret,id=extra_ca,required=false \
     --mount=type=cache,id=pnpm-store,target=/pnpm/store \

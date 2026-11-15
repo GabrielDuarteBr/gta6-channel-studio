@@ -3,8 +3,9 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
+import { renderMedia, renderStill, selectComposition } from '@remotion/renderer';
 import { renderDimensions } from '@studio/shared';
+import { startMetrics } from './metrics';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(here, '..', 'public');
@@ -18,6 +19,10 @@ export interface RenderReport {
   frames: number;
   seconds: number;
   bytes: number;
+  /** Segundos de CPU e pico de memória do container durante o render. */
+  cpuSeconds: number;
+  peakMemoryMb: number;
+  metricsSource: 'cgroup' | 'processo';
 }
 
 /** Silêncio de 1 s (WAV PCM 16 bits mono 44,1 kHz) para a pré-visualização no Remotion Studio. */
@@ -83,8 +88,11 @@ export async function renderComposition(opts: {
   height: 720 | 1080;
   vertical?: boolean;
   concurrency?: number;
+  /** Quadro único (PNG), no tamanho da própria composição (thumbnail 1280×720). */
+  still?: boolean;
 }): Promise<RenderReport> {
   const started = performance.now();
+  const stopMetrics = startMetrics();
   const url = await getServeUrl();
   const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE ?? null;
   const composition = await selectComposition({
@@ -94,8 +102,31 @@ export async function renderComposition(opts: {
     browserExecutable,
     chromiumOptions: { gl: RENDER_GL },
   });
-  const dims = renderDimensions(opts.vertical ? 'vertical' : 'landscape', opts.height);
   await mkdir(path.dirname(opts.output), { recursive: true });
+  if (opts.still) {
+    await renderStill({
+      serveUrl: url,
+      composition,
+      inputProps: opts.inputProps,
+      output: opts.output,
+      imageFormat: 'png',
+      frame: 0,
+      chromiumOptions: { gl: RENDER_GL },
+      browserExecutable,
+    });
+    const { size } = await stat(opts.output);
+    return {
+      composition: opts.id,
+      output: opts.output,
+      width: composition.width,
+      height: composition.height,
+      frames: 1,
+      seconds: Number(((performance.now() - started) / 1000).toFixed(1)),
+      bytes: size,
+      ...stopMetrics(),
+    };
+  }
+  const dims = renderDimensions(opts.vertical ? 'vertical' : 'landscape', opts.height);
   await renderMedia({
     serveUrl: url,
     composition: { ...composition, ...dims },
@@ -114,5 +145,6 @@ export async function renderComposition(opts: {
     frames: composition.durationInFrames,
     seconds: Number(((performance.now() - started) / 1000).toFixed(1)),
     bytes: size,
+    ...stopMetrics(),
   };
 }

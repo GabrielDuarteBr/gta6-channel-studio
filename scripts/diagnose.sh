@@ -11,6 +11,12 @@ exec > >(tee "$out_file") 2>&1
 
 echo
 echo "================= DIAGNÓSTICO (mande isto para o Claude) ================="
+# Disco cheio derruba Postgres e o S3 (SeaweedFS recusa gravar com menos de ~1-2% livre).
+free_pct=$(df -P . | awk 'NR==2 {gsub("%","",$5); print 100-$5}')
+echo "Disco livre no Ubuntu: $(df -hP . | awk 'NR==2 {print $4}') (${free_pct}%)"
+if [[ "${free_pct:-100}" -lt 5 ]]; then
+  echo "[!] Pouco espaço: rode 'docker system prune' e 'docker builder prune' (não apaga seus dados)."
+fi
 dc ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
 for svc in $(dc ps -a --services 2>/dev/null); do
   cid=$(dc ps -a -q "$svc" 2>/dev/null | head -1)

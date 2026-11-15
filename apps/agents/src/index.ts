@@ -7,19 +7,28 @@ import {
   parseEnv,
   profileDefaults,
   redisEnvSchema,
+  s3EnvSchema,
   serviceUrlsEnvSchema,
 } from '@studio/shared';
+import { S3ObjectStore } from '@studio/storage';
 import { CLIP_JOB } from './character/clip';
 import { runClipJob } from './character/job';
 import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
+import { runProductionJob } from './production/job';
+import { PRODUCTION_JOB } from './production/pipeline';
+import { runVariation, VARIATION_JOB } from './production/variation';
 import { runResearch } from './research/pipeline';
 import { COLLECT_JOB, ensureResearchSchedule, RESEARCH_SCHEDULER_ID } from './research/schedule';
 import { applyDefaultSourceFixes, seedDefaultSources } from './research/sources';
 
 const log = createLogger('agents');
 const env = parseEnv(
-  baseEnvSchema.merge(databaseEnvSchema).merge(redisEnvSchema).merge(serviceUrlsEnvSchema),
+  baseEnvSchema
+    .merge(databaseEnvSchema)
+    .merge(redisEnvSchema)
+    .merge(serviceUrlsEnvSchema)
+    .merge(s3EnvSchema),
 );
 const profile = profileDefaults(env.APP_PROFILE);
 const prisma = getPrisma();
@@ -80,6 +89,17 @@ async function main(): Promise<void> {
     renderUrl: env.RENDER_URL,
     googleApiKey: process.env.GOOGLE_TTS_API_KEY || undefined,
   };
+  const productionCtx = {
+    prisma,
+    log,
+    store: new S3ObjectStore(env),
+    mediaUrl: env.MEDIA_URL,
+    renderUrl: env.RENDER_URL,
+    renderHeight: profile.renderHeight,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
+    googleTtsKey: process.env.GOOGLE_TTS_API_KEY || undefined,
+    geminiKey: process.env.GEMINI_API_KEY || undefined,
+  };
 
   const workers: Worker[] = [
     // Uma coleta por vez (agendada, manual ou de recuperação).
@@ -109,12 +129,30 @@ async function main(): Promise<void> {
     createWorker(
       'render',
       async (job) => {
-        if (job.name !== CLIP_JOB) throw new Error(`job desconhecido na fila render: ${job.name}`);
-        return runClipJob(clipCtx, job.data);
+        if (job.name === CLIP_JOB) return runClipJob(clipCtx, job.data);
+        if (job.name === PRODUCTION_JOB) {
+          return runProductionJob(productionCtx, job.data, {
+            made: job.attemptsMade,
+            max: job.opts.attempts ?? 1,
+          });
+        }
+        throw new Error(`job desconhecido na fila render: ${job.name}`);
       },
       {
         connection,
         concurrency: profile.queueConcurrency.render,
+        recorder: prismaJobRecorder(prisma),
+      },
+    ),
+    createWorker(
+      'image',
+      async (job) => {
+        if (job.name === VARIATION_JOB) return runVariation(productionCtx, job.data);
+        throw new Error(`job desconhecido na fila image: ${job.name}`);
+      },
+      {
+        connection,
+        concurrency: profile.queueConcurrency.image,
         recorder: prismaJobRecorder(prisma),
       },
     ),

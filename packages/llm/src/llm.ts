@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod';
-import { costUsd, type TokenUsage } from './pricing';
+import { costUsd, MODEL_PRICES, type TokenUsage } from './pricing';
 
 /** Registro de custo de cada chamada (vai para o CostLedger). */
 export interface LlmCostRecord {
@@ -10,7 +11,15 @@ export interface LlmCostRecord {
   usage: TokenUsage;
   costUsd: number;
   simulated: boolean;
+  /** Vídeo a que o gasto pertence (custo real por vídeo). */
+  productionId?: string | undefined;
 }
+
+/**
+ * Modelos com fallback do servidor quando o modelo recusa um pedido (o servidor escolhe o
+ * modelo de reserva pela categoria da recusa). Ver claude-api: "Refusal Fallbacks".
+ */
+export const SERVER_FALLBACK_MODELS = new Set(['claude-sonnet-5-5', 'claude-opus-5-5']);
 
 export interface StructuredRequest<S extends z.ZodType> {
   /** ex.: "agent:pesquisador.triagem" */
@@ -18,13 +27,14 @@ export interface StructuredRequest<S extends z.ZodType> {
   model: string;
   /** Instruções estáveis (ficam em cache). */
   system: string;
-  /** Conteúdo variável da chamada. */
-  user: string;
+  /** Conteúdo variável da chamada (texto, ou blocos com imagens para o Revisor visual). */
+  user: string | Anthropic.ContentBlockParam[];
   schema: S;
   maxTokens?: number;
   effort?: 'low' | 'medium' | 'high';
   /** Resposta do modo simulado (sem chamar a API). */
   fake: () => z.infer<S>;
+  productionId?: string | undefined;
 }
 
 export interface StructuredResult<T> {
@@ -58,7 +68,7 @@ export interface LlmDeps {
   /** Grava o custo (também no modo simulado, com custo 0). */
   record: (cost: LlmCostRecord) => Promise<void>;
   /** Para testes: cliente da Anthropic injetado. */
-  client?: Pick<Anthropic, 'messages'>;
+  client?: Pick<Anthropic, 'messages' | 'beta'>;
 }
 
 /** Ainda há orçamento? Pausa os agentes quando o teto diário ou mensal é atingido. */
@@ -76,7 +86,7 @@ export function assertWithinBudget(b: BudgetStatus): void {
 }
 
 export class Llm {
-  private readonly client: Pick<Anthropic, 'messages'> | undefined;
+  private readonly client: Pick<Anthropic, 'messages' | 'beta'> | undefined;
 
   constructor(private readonly deps: LlmDeps) {
     this.client =
@@ -99,21 +109,37 @@ export class Llm {
         usage: { input_tokens: 0, output_tokens: 0 },
         costUsd: 0,
         simulated: true,
+        productionId: req.productionId,
       };
       await this.deps.record(cost);
       return { data: req.schema.parse(req.fake()), cost };
     }
 
     assertWithinBudget(await this.deps.budget());
-    const client = this.client as Pick<Anthropic, 'messages'>;
-    const response = await client.messages.parse({
-      model: req.model,
-      max_tokens: req.maxTokens ?? 8000,
-      // Instruções estáveis primeiro, em cache; conteúdo variável depois.
-      system: [{ type: 'text', text: req.system, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: req.user }],
-      output_config: { effort: req.effort ?? 'low', format: zodOutputFormat(req.schema) },
-    });
+    const client = this.client as Pick<Anthropic, 'messages' | 'beta'>;
+    // Instruções estáveis primeiro, em cache; conteúdo variável depois.
+    const system: Anthropic.TextBlockParam[] = [
+      { type: 'text', text: req.system, cache_control: { type: 'ephemeral' } },
+    ];
+    const response = SERVER_FALLBACK_MODELS.has(req.model)
+      ? await client.beta.messages.parse({
+          model: req.model,
+          max_tokens: req.maxTokens ?? 16000,
+          system,
+          messages: [
+            { role: 'user', content: req.user as Anthropic.Beta.BetaContentBlockParam[] | string },
+          ],
+          output_config: { effort: req.effort ?? 'low', format: betaZodOutputFormat(req.schema) },
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default',
+        })
+      : await client.messages.parse({
+          model: req.model,
+          max_tokens: req.maxTokens ?? 8000,
+          system,
+          messages: [{ role: 'user', content: req.user }],
+          output_config: { effort: req.effort ?? 'low', format: zodOutputFormat(req.schema) },
+        });
 
     const usage: TokenUsage = {
       input_tokens: response.usage.input_tokens,
@@ -121,12 +147,15 @@ export class Llm {
       cache_read_input_tokens: response.usage.cache_read_input_tokens,
       cache_creation_input_tokens: response.usage.cache_creation_input_tokens,
     };
+    // Se o fallback do servidor respondeu, o preço é o do modelo que respondeu.
+    const servedBy = response.model in MODEL_PRICES ? response.model : req.model;
     const cost: LlmCostRecord = {
       task: req.task,
-      model: req.model,
+      model: servedBy,
       usage,
-      costUsd: costUsd(req.model, usage),
+      costUsd: costUsd(servedBy, usage),
       simulated: false,
+      productionId: req.productionId,
     };
     await this.deps.record(cost);
 

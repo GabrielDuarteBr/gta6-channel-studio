@@ -25,8 +25,15 @@ const config: NextConfig = {
     '@studio/policy',
     '@studio/queue',
     '@studio/avatar',
+    '@studio/storage',
+    '@studio/production',
   ],
-  serverExternalPackages: ['@node-rs/argon2', 'pino', 'ioredis', 'bullmq'],
+  serverExternalPackages: ['@node-rs/argon2', 'pino', 'ioredis', 'bullmq', '@aws-sdk/client-s3'],
+  experimental: {
+    // Envio de imagens para a Biblioteca (até 20 MB por arquivo, com folga para o formulário).
+    serverActions: { bodySizeLimit: '25mb' },
+    proxyClientMaxBodySize: '25mb',
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

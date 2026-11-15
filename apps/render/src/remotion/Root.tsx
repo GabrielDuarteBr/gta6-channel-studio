@@ -1,5 +1,13 @@
 import { Composition, staticFile } from 'remotion';
+import type { ThumbnailSpec, VideoPlan } from '@studio/production';
 import { HelloZeca, helloZecaSchema } from './HelloZeca';
+import {
+  calculateNewsVideoMetadata,
+  NewsVideo,
+  newsVideoSchema,
+  type NewsVideoProps,
+} from './news/NewsVideo';
+import { Thumbnail, thumbnailSchema, type ThumbnailProps } from './news/Thumbnail';
 import { RivePoc, rivePocSchema, type RivePocProps } from './RivePoc';
 import {
   calculateZecaClipMetadata,
@@ -39,6 +47,59 @@ const riveDefaults: RivePocProps = {
   secondsPerValue: 0.8,
 };
 
+/** Plano de exemplo para o Remotion Studio (o job manda o real). */
+const samplePlan: VideoPlan = {
+  format: 'LONG',
+  width: 1280,
+  height: 720,
+  fps: 30,
+  durationSec: 6,
+  introSec: 1.5,
+  outroSec: 2,
+  voiceSrc: staticFile('zeca/silencio.wav'),
+  voiceStartSec: 1.5,
+  character: {
+    durationSec: 6,
+    expressions: [{ start: 0, end: 6, expression: 'feliz' }],
+    gestures: [],
+    mouthCues: [
+      { start: 1.6, end: 2.0, value: 'B' },
+      { start: 2.0, end: 2.5, value: 'D' },
+    ],
+  },
+  blinkSeed: 7,
+  scenes: [
+    {
+      id: 1,
+      start: 0,
+      end: 6,
+      image: null,
+      headline: 'Exemplo de cena',
+      motion: { fromScale: 1, toScale: 1.1, fromX: 0, toX: 0, fromY: 0, toY: 0 },
+    },
+  ],
+  captions: [{ start: 1.6, end: 3.5, text: 'Fala, galera do Radar!' }],
+  sourceChips: [{ start: 1.6, end: 3.5, label: 'Rockstar Newswire' }],
+  rumorSpans: [],
+  storyIsRumor: false,
+  credits: [],
+  title: 'Exemplo de vídeo de notícia',
+  channelName: 'Radar Neon',
+  aiNotice: 'Apresentador animado com voz sintética (IA)',
+};
+const newsDefaults: NewsVideoProps = { plan: samplePlan, workBaseUrl: '', provisional: true };
+const sampleThumb: ThumbnailSpec = {
+  width: 1280,
+  height: 720,
+  image: null,
+  headline: 'SAIU AGORA',
+  expression: 'surpreso',
+  rumor: false,
+  variant: 0,
+  channelName: 'Radar Neon',
+};
+const thumbDefaults: ThumbnailProps = { spec: sampleThumb, workBaseUrl: '', provisional: true };
+
 export function Root() {
   return (
     <>
@@ -70,6 +131,27 @@ export function Root() {
         calculateMetadata={calculateZecaClipMetadata}
         durationInFrames={30}
         fps={ZECA_FPS}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="NewsVideo"
+        component={NewsVideo}
+        schema={newsVideoSchema}
+        defaultProps={newsDefaults}
+        calculateMetadata={calculateNewsVideoMetadata}
+        durationInFrames={180}
+        fps={30}
+        width={1280}
+        height={720}
+      />
+      <Composition
+        id="Thumbnail"
+        component={Thumbnail}
+        schema={thumbnailSchema}
+        defaultProps={thumbDefaults}
+        durationInFrames={1}
+        fps={30}
         width={1280}
         height={720}
       />

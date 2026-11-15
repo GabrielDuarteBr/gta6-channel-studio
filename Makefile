@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 zeca vozes diagnose
+.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 accept-3 zeca vozes imagens produzir diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -56,6 +56,12 @@ zeca: .env ## Clipe de teste do Zeca; ROTEIRO="...", VERTICAL=1, VOZ=google (voz
 
 vozes: .env ## Lista as vozes Chirp 3 HD (pt-BR) da sua chave e gera amostras em vozes/ (AMOSTRAS=0 só lista)
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/voices.ts $(if $(filter 0,$(AMOSTRAS)),,--amostras)
+
+imagens: .env ## Modelos de imagem do Google da sua chave; COMPARAR=1 gera as mesmas 3 imagens em cada modelo (pago)
+	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/images.ts $(if $(COMPARAR),--comparar,) $(if $(MODELOS),--modelos=$(MODELOS),)
+
+produzir: .env ## Produz um vídeo pela fila e espera; FORMATO=LONG|SHORT, HISTORIA=<id>, REAL=1 (pago)
+	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/produce.ts --formato=$(or $(FORMATO),SHORT) $(if $(HISTORIA),--historia=$(HISTORIA),) $(if $(filter 1,$(REAL)),--real,)
 
 reset: ## APAGA banco, filas e arquivos locais (pede confirmação)
 	@read -r -p "Isso apaga banco, filas e arquivos locais do notebook. Digite APAGAR para confirmar: " c; \
@@ -99,6 +105,9 @@ accept-1: .env ## Todos os critérios de aceite da Fase 1 (Pesquisa); ESPERAR=1 
 
 accept-2: .env ## Todos os critérios de aceite da Fase 2 (Personagem)
 	@bash scripts/accept-2.sh
+
+accept-3: .env ## Todos os critérios de aceite da Fase 3 (Notícias em vídeo); REAL=1 mede o custo real
+	@REAL=$(REAL) bash scripts/accept-3.sh
 
 diagnose: ## Mostra por que algum serviço não está saudável (estado, teste de saúde e logs)
 	@bash scripts/diagnose.sh

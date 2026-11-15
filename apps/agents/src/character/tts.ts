@@ -86,6 +86,7 @@ export async function recordTts(
   r: { chars: number; cached?: boolean | undefined },
   task: string,
   voiceLabel?: string,
+  productionId?: string,
 ): Promise<number> {
   if (r.cached) return 0;
   let costUsd = 0;
@@ -106,6 +107,7 @@ export async function recordTts(
       characters: r.chars,
       costUsd,
       simulated: !tts.real,
+      productionId: productionId ?? null,
     },
   });
   return costUsd;

@@ -362,6 +362,88 @@ make accept-2
 
 Para gerar um clipe pelo Ubuntu: `make zeca` (ou `make zeca VERTICAL=1` para Short).
 
+## 11. Fase 3: notícias em vídeo
+
+Uma história da **Pauta** vira vídeo de notícia: o **Roteirista** (Claude Sonnet 5.5) escreve as
+falas do Zeca com fonte em cada afirmação, o **Diretor de arte** escolhe imagens da Biblioteca ou
+gera cenários novos (Google), a voz do Zeca é gravada, o **Editor** monta o vídeo longo 16:9 ou o
+Short 9:16 com legendas, fonte na tela e selo de rumor, faz 3 thumbnails, e o **Revisor visual**
+(Claude olhando quadros do vídeo) aprova ou pede correção (até 3 voltas). Nada é publicado: o vídeo
+fica pronto na tela **Produção** para você ver.
+
+### 11.1 Chave das imagens: Gemini API (navegador do Windows, ~5 min)
+
+Mesmo projeto `radar-neon` e mesmo faturamento da voz (seção 10.1). Nada de conta nova.
+
+1. Abra https://console.cloud.google.com e confira o projeto `radar-neon` no topo.
+2. Menu ☰ → **APIs e serviços** → **Biblioteca** → procure **Generative Language API** →
+   **Ativar**.
+3. Menu ☰ → **APIs e serviços** → **Credenciais** → **Criar credenciais** → **Chave de API**.
+   **Restrições de API** → **Restringir chave** → marque só **Generative Language API** →
+   **Salvar**. Copie a chave (começa com `AIza`). **Não cole no chat.**
+4. O alerta de orçamento da seção 10.1 já cobre as imagens (é o mesmo faturamento).
+
+Preço aproximado por imagem (sites de comparação, nov/2026; confira no console): **Imagen 4 Fast
+~US$ 0,02**, Gemini Flash Lite Image ~US$ 0,034, Gemini Flash Image ("Nano Banana 2") ~US$ 0,067.
+O estúdio respeita o teto de gasto, não gera duas vezes o mesmo pedido e guarda cada imagem na
+Biblioteca com o prompt no manifesto.
+
+**Comparar os modelos:** `make imagens` lista os modelos da sua chave; `make imagens COMPARAR=1`
+gera as mesmas 3 imagens em até 3 modelos (~US$ 0,40) na pasta `comparativo-imagens/` (o `.bat`
+copia para a Área de Trabalho). Escolha em **Configurações → Imagens geradas**.
+
+### 11.2 Chave da Anthropic (Claude)
+
+O Roteirista e o Revisor usam a `ANTHROPIC_API_KEY` da seção 9.3. Sem ela (ou com o modo simulado
+ligado), o roteiro e a revisão são de teste e não custam nada.
+
+### Jeito rápido: `windows/rodar-fase-3.bat` (recomendado)
+
+Dê **dois cliques** no `rodar-fase-3.bat`. Ele:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop;
+2. troca o projeto para a versão da Fase 3;
+3. pede a chave da Gemini API (seção 11.1), testa e grava no `.env` (e a da Anthropic, se faltar);
+4. lista os modelos de imagem e, se você quiser, gera o comparativo (`radar-neon-imagens`);
+5. pergunta se roda **1 Short e 1 vídeo longo de verdade** (Claude + imagens + voz, ~US$ 1) para
+   medir o custo real;
+6. roda o `make accept-3` (de 30 a 60 minutos);
+7. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-3.txt`), os vídeos e as
+   thumbnails (`radar-neon-fase3-*`);
+8. abre a tela **Produção**.
+
+### Pelo Ubuntu (mesmo caminho, à mão)
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin
+```
+
+```bash
+git checkout fase-3-noticias
+```
+
+```bash
+make accept-3
+```
+
+Com custo real (precisa das chaves): `make accept-3 REAL=1`.
+
+### O que olhar no painel
+
+- **Pauta**: marque uma história como "Virar longo" ou "Virar Short".
+- **Produção**: a história aparece em "Na fila da Pauta". Clique em **Produzir** (só aí gasta). Em
+  alguns minutos aparecem o vídeo, as 3 thumbnails (a escolhida em destaque), o parecer do
+  Revisor, o roteiro com as fontes, o custo e o tempo de render. Limite diário em Configurações.
+- **Biblioteca**: envie imagens suas ou importe do site oficial da Rockstar, sempre com licença,
+  crédito e prova. Sem manifesto ativo, nada entra no vídeo. "Revogar" tira a mídia dos próximos
+  vídeos e mostra quais vídeos a usaram.
+- **Arte**: cenários gerados. **Aprovar** deixa o Roteirista reaproveitar (sem pagar de novo);
+  **Gerar variação** faz outra versão; **Descartar** tira dos próximos vídeos.
+
 ---
 
 ## Comandos do dia a dia
@@ -376,6 +458,8 @@ Para gerar um clipe pelo Ubuntu: `make zeca` (ou `make zeca VERTICAL=1` para Sho
 | `make coletar` | coleta notícias agora e mostra o resultado por fonte |
 | `make zeca` | clipe de teste do Zeca (`VERTICAL=1` para Short, `VOZ=google` para a voz real) |
 | `make vozes` | lista as vozes do Google e gera amostras para ouvir |
+| `make produzir` | produz um vídeo pela fila (`FORMATO=LONG`, `REAL=1` para de verdade) |
+| `make imagens` | modelos de imagem da sua chave (`COMPARAR=1` gera o comparativo) |
 | `make reset` | **apaga** os dados locais (pede confirmação) |
 
 ## O notebook dormiu ou desligou?

@@ -86,22 +86,30 @@ const googleError = z.object({
     .optional(),
 });
 
-/** Erro do Google em português, sem repetir a chave. */
-export function explainGoogleError(status: number, body: unknown): string {
+/** Erro do Google em português, sem repetir a chave. Serve para voz e imagem. */
+export function explainGoogleError(
+  status: number,
+  body: unknown,
+  api = 'Cloud Text-to-Speech API',
+  envName = 'GOOGLE_TTS_API_KEY',
+): string {
   const err = googleError.safeParse(body).data?.error;
   const reasons = (err?.details ?? []).map((d) => d.reason ?? '').join(' ');
   const all = `${err?.status ?? ''} ${reasons} ${err?.message ?? ''}`;
-  if (/API_KEY_INVALID/.test(all)) return 'chave do Google inválida (confira GOOGLE_TTS_API_KEY)';
+  if (/API_KEY_INVALID/.test(all)) return `chave do Google inválida (confira ${envName})`;
   if (/SERVICE_DISABLED|has not been used|is disabled/i.test(all)) {
-    return 'a Cloud Text-to-Speech API não está ativada no projeto do Google Cloud';
+    return `a ${api} não está ativada no projeto do Google Cloud`;
   }
   if (/BILLING/i.test(all)) return 'o faturamento do projeto do Google Cloud não está ativado';
   if (/API_KEY_SERVICE_BLOCKED|API_KEY_.*BLOCKED/.test(all)) {
-    return 'a chave do Google está restrita a outra API (libere a Cloud Text-to-Speech API)';
+    return `a chave do Google está restrita a outra API (libere a ${api})`;
   }
   if (status === 429 || /RESOURCE_EXHAUSTED/.test(all))
     return 'limite de uso do Google atingido; tente mais tarde';
-  return `Google TTS respondeu HTTP ${status}${err?.status ? ` (${err.status})` : ''}`;
+  if (status === 404 || /NOT_FOUND/.test(all)) {
+    return `modelo ou recurso não encontrado no Google (${(err?.message ?? '').slice(0, 120)})`;
+  }
+  return `Google respondeu HTTP ${status}${err?.status ? ` (${err.status})` : ''}`;
 }
 
 const synthesizeSchema = z.object({ audioContent: z.string().min(1) });

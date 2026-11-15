@@ -38,6 +38,8 @@ const MEDIA_TYPES: Record<string, string> = {
   '.mp3': 'audio/mpeg',
   '.mp4': 'video/mp4',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.json': 'application/json',
 };
 
@@ -80,10 +82,11 @@ function serveWorkFile(req: IncomingMessage, res: ServerResponse, relative: stri
 }
 
 const renderRequest = z.object({
-  composition: z.enum(['ZecaClip', 'RivePoc', 'HelloZeca']),
+  composition: z.enum(['ZecaClip', 'RivePoc', 'HelloZeca', 'NewsVideo', 'Thumbnail']),
   props: z.record(z.string(), z.unknown()),
-  /** Relativo à pasta de trabalho, terminando em .mp4. */
-  output: z.string().regex(/\.mp4$/),
+  /** Relativo à pasta de trabalho: .mp4 (vídeo) ou .png (quadro único). */
+  output: z.string().regex(/\.(mp4|png)$/),
+  still: z.boolean().optional(),
   /** Áudio (relativo à pasta de trabalho) para o ZecaClip; vira URL local para o Chrome. */
   audio: z.string().optional(),
   height: z.union([z.literal(720), z.literal(1080)]).optional(),
@@ -151,8 +154,14 @@ async function handleRender(req: IncomingMessage, res: ServerResponse): Promise<
   // Guarda só os últimos 200 trabalhos na memória.
   for (const key of [...jobs.keys()].slice(0, Math.max(0, jobs.size - 200))) jobs.delete(key);
 
+  if (Boolean(body.still) !== body.output.endsWith('.png')) {
+    sendJson(res, 400, { error: 'quadro único sai em .png; vídeo em .mp4' });
+    return;
+  }
   const props = { ...body.props };
   if (body.audio) props.audioSrc = `http://127.0.0.1:${PORT}/work/${body.audio}`;
+  // Imagens e voz das composições de notícia vêm da pasta de trabalho por esta base.
+  props.workBaseUrl = `http://127.0.0.1:${PORT}/work`;
   const run = queue.then(async () => {
     job.status = 'renderizando';
     const report = await renderComposition({
@@ -162,6 +171,7 @@ async function handleRender(req: IncomingMessage, res: ServerResponse): Promise<
       height: body.height ?? profile.renderHeight,
       vertical: body.vertical,
       concurrency: profile.renderConcurrency,
+      still: body.still,
     });
     job.status = 'pronto';
     job.report = { ...report, output: path.relative(WORK_ROOT, report.output) };

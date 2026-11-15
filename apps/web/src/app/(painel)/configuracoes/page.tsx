@@ -26,6 +26,8 @@ export default async function SettingsPage() {
   const identity = settings['channel.identity'];
   const research = settings.research;
   const character = settings.character;
+  const production = settings.production;
+  const images = settings.images;
 
   return (
     <>
@@ -277,6 +279,130 @@ export default async function SettingsPage() {
             label="Permitir pagar além da cota grátis"
             description="Desligado: a voz do Google para em 95% da cota grátis do mês. Ligado: segue até o teto de gasto (US$ 30 por milhão de caracteres)."
           />
+        </SettingForm>
+
+        <SettingForm
+          settingKey="production"
+          title="Produção de vídeos"
+          description="Modelo do Claude que escreve o roteiro e faz a revisão visual (custo por vídeo), duração-alvo e voltas do Revisor."
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="writerModel">Roteirista</Label>
+              <Select id="writerModel" name="writerModel" defaultValue={production.writerModel}>
+                <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
+                <option value="claude-opus-5-5">Claude Opus 5.5 (melhor texto, ~2x o custo)</option>
+                <option value="claude-haiku-5-5">Claude Haiku 5.5 (mais barato)</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reviewerModel">Revisor visual</Label>
+              <Select
+                id="reviewerModel"
+                name="reviewerModel"
+                defaultValue={production.reviewerModel}
+              >
+                <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
+                <option value="claude-opus-5-5">Claude Opus 5.5</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="longTargetSec">Duração do vídeo longo (s de narração)</Label>
+              <Input
+                id="longTargetSec"
+                name="longTargetSec"
+                type="number"
+                min={90}
+                max={600}
+                defaultValue={production.longTargetSec}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="shortTargetSec">Duração do Short (s de narração)</Label>
+              <Input
+                id="shortTargetSec"
+                name="shortTargetSec"
+                type="number"
+                min={20}
+                max={58}
+                defaultValue={production.shortTargetSec}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="maxReviewRounds">Voltas do Revisor (1 a 3)</Label>
+              <Input
+                id="maxReviewRounds"
+                name="maxReviewRounds"
+                type="number"
+                min={1}
+                max={3}
+                defaultValue={production.maxReviewRounds}
+              />
+            </div>
+          </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="images"
+          title="Imagens geradas"
+          description="Google (Imagen 4 / Gemini) com a chave GEMINI_API_KEY do .env, ou imagens de teste. Com o modo simulado ligado, as imagens são de teste. Rode `make imagens` para ver os modelos da sua chave e comparar."
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="img-provider">Provedor</Label>
+              <Select id="img-provider" name="provider" defaultValue={images.provider}>
+                <option value="google">Google (pago, ~US$ 0,02 a 0,07 por imagem)</option>
+                <option value="fake">Imagens de teste (grátis)</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="img-model">Modelo do Google</Label>
+              <Input
+                id="img-model"
+                name="model"
+                list="modelos-imagem"
+                defaultValue={images.model}
+                pattern="[a-z0-9][a-z0-9.\-]{2,80}"
+              />
+              <datalist id="modelos-imagem">
+                <option value="imagen-4.0-fast-generate-001" />
+                <option value="imagen-4.0-generate-001" />
+                <option value="gemini-3.1-flash-image-preview" />
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="maxPerLong">Imagens novas por vídeo longo</Label>
+              <Input
+                id="maxPerLong"
+                name="maxPerLong"
+                type="number"
+                min={0}
+                max={20}
+                defaultValue={images.maxPerLong}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="maxPerShort">Imagens novas por Short</Label>
+              <Input
+                id="maxPerShort"
+                name="maxPerShort"
+                type="number"
+                min={0}
+                max={8}
+                defaultValue={images.maxPerShort}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="img-style">Guia de estilo (inglês, vai em todo pedido)</Label>
+              <textarea
+                id="img-style"
+                name="style"
+                rows={3}
+                defaultValue={images.style}
+                className="w-full rounded-lg border border-night-600 bg-night-900 px-3 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none"
+              />
+            </div>
+          </div>
         </SettingForm>
 
         <SettingForm

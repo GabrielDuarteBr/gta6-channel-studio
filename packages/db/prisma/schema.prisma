@@ -112,9 +112,12 @@ model CostLedger {
   units            Float?
   costUsd          Decimal  @db.Decimal(12, 6)
   simulated        Boolean  @default(false)
+  /// Vídeo a que este gasto pertence (custo real por vídeo, Fase 3)
+  productionId     String?
 
   @@index([dayKey])
   @@index([provider, dayKey])
+  @@index([productionId])
 }
 
 /// Uso da cota da YouTube Data API por balde. A cota zera à meia-noite do Pacífico.
@@ -206,26 +209,26 @@ model Source {
 }
 
 model NewsItem {
-  id             String    @id @default(cuid())
-  sourceId       String
-  source         Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  sourceId        String
+  source          Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   /// URL canônica (sem utm etc.) — deduplicação entre fontes
-  url            String    @unique
+  url             String    @unique
   /// Domínio registrável (independência de fontes para rumores)
-  domain         String
-  title          String
-  summary        String?
-  author         String?
-  publishedAt    DateTime?
-  fetchedAt      DateTime  @default(now())
+  domain          String
+  title           String
+  summary         String?
+  author          String?
+  publishedAt     DateTime?
+  fetchedAt       DateTime  @default(now())
   normalizedTitle String
   /// Sinais de engajamento (YouTube: views, likes...)
-  metrics        Json?
+  metrics         Json?
   /// Bandeiras de política detectadas no texto (vazamento, trapaça, spoiler...)
-  flags          Json?
-  isRumor        Boolean   @default(false)
-  storyId        String?
-  story          Story?    @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  flags           Json?
+  isRumor         Boolean   @default(false)
+  storyId         String?
+  story           Story?    @relation(fields: [storyId], references: [id], onDelete: SetNull)
 
   @@index([storyId])
   @@index([publishedAt])
@@ -240,30 +243,32 @@ enum StoryStatus {
 }
 
 model Story {
-  id                 String      @id @default(cuid())
+  id                 String       @id @default(cuid())
   title              String
   /// Título/resumo em PT-BR (triagem do Claude Haiku ou o próprio título)
   titlePt            String?
   summaryPt          String?
-  firstSeenAt        DateTime    @default(now())
-  lastSeenAt         DateTime    @default(now())
-  score              Float       @default(0)
+  firstSeenAt        DateTime     @default(now())
+  lastSeenAt         DateTime     @default(now())
+  score              Float        @default(0)
   scoreBreakdown     Json?
-  itemCount          Int         @default(0)
-  independentSources Int         @default(0)
-  officialCount      Int         @default(0)
-  isRumor            Boolean     @default(false)
+  itemCount          Int          @default(0)
+  independentSources Int          @default(0)
+  officialCount      Int          @default(0)
+  isRumor            Boolean      @default(false)
   /// Bandeiras de política agregadas (vazamento, spoiler...)
   flags              Json?
   /// "oficial" | "reportagem" | "rumor" | "vazamento" | "opinião" | "guia"
   kind               String?
   newsworthiness     Float?
   triagedAt          DateTime?
-  status             StoryStatus @default(NEW)
+  status             StoryStatus  @default(NEW)
   statusChangedAt    DateTime?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
   items              NewsItem[]
+  productions        Production[]
+  assets             Asset[]
 
   @@index([score])
   @@index([lastSeenAt])
@@ -278,4 +283,161 @@ model CharacterBible {
   note      String?
   createdBy String
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3 — Biblioteca (mídia com manifesto de direitos) e Produção de vídeos
+// ---------------------------------------------------------------------------
+
+enum AssetKind {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+/// De onde a mídia veio (regra 1: nada do YouTube; tudo com manifesto).
+enum AssetOrigin {
+  /// Imprensa oficial (Rockstar Newswire, kit de imprensa da Take-Two)
+  OFFICIAL_PRESS
+  /// Arquivo enviado por parceiro com permissão registrada (Fase 4)
+  PARTNER
+  /// Gerada pelo nosso provedor de imagem (Google Imagen/Gemini)
+  IMAGE_PROVIDER
+  /// Enviada pelo dono (arte própria, foto própria)
+  OWNER_UPLOAD
+  /// Material do próprio canal (segmentos já publicados)
+  CHANNEL_OWN
+}
+
+enum RightsStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Mídia da Biblioteca. O arquivo fica no S3 (SeaweedFS); só entra em render com manifesto ativo.
+model Asset {
+  id          String            @id @default(cuid())
+  kind        AssetKind         @default(IMAGE)
+  origin      AssetOrigin
+  title       String
+  description String?
+  tags        String[]          @default([])
+  /// Chave no S3 (library/<sha256>.<ext>)
+  storageKey  String            @unique
+  /// Mesmo arquivo enviado duas vezes vira o mesmo asset
+  sha256      String            @unique
+  mime        String
+  width       Int?
+  height      Int?
+  bytes       Int
+  storyId     String?
+  story       Story?            @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  /// "owner" | "agent:diretor-arte" ...
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  manifest    RightsManifest?
+  usages      ProductionAsset[]
+
+  @@index([origin])
+  @@index([storyId])
+}
+
+/// Manifesto de direitos: de onde veio, sob que licença, com que prova e restrições.
+model RightsManifest {
+  id            String       @id @default(cuid())
+  assetId       String       @unique
+  asset         Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  origin        AssetOrigin
+  /// Página de origem (comunicado oficial, termos do provedor)
+  sourceUrl     String?
+  /// Licença/base de uso em texto (ex.: "Imprensa oficial — uso editorial")
+  license       String
+  /// Crédito exibido no vídeo/descrição
+  credit        String?
+  /// Prova (link do comunicado, descrição do e-mail do parceiro...)
+  proof         String?
+  /// { editorialOnly, allowThumbnail, mustCredit }
+  restrictions  Json?
+  /// Provedor/modelo (IMAGE_PROVIDER)
+  provider      String?
+  /// Prompt usado (IMAGE_PROVIDER)
+  prompt        String?
+  status        RightsStatus @default(ACTIVE)
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  revokedReason String?
+  createdBy     String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+enum ProductionFormat {
+  LONG
+  SHORT
+}
+
+enum ProductionStatus {
+  /// Esperando o dono clicar em "Produzir"
+  DRAFT
+  QUEUED
+  SCRIPTING
+  ART
+  VOICE
+  RENDERING
+  REVIEWING
+  /// Aprovado pelo Revisor visual; aguarda o dono (publicação na Fase 5)
+  READY
+  /// Revisor reprovou depois de todas as voltas, ou política bloqueou
+  NEEDS_ATTENTION
+  FAILED
+  CANCELED
+}
+
+/// Um vídeo (longo 16:9 ou Short 9:16) produzido a partir de uma história da Pauta.
+model Production {
+  id           String            @id @default(cuid())
+  storyId      String
+  story        Story             @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  format       ProductionFormat
+  status       ProductionStatus  @default(DRAFT)
+  /// Detalhe da etapa atual (ex.: "imagem 3 de 6")
+  step         String?
+  title        String?
+  /// Roteiro validado (zod, pacote @studio/production)
+  script       Json?
+  /// Cenas com mídia escolhida, trechos de voz e tempos
+  plan         Json?
+  /// Vereditos do Revisor visual (uma entrada por volta)
+  review       Json?
+  reviewRound  Int               @default(0)
+  /// { video, thumbnails[], thumbnail, durationSec, narrationRatio }
+  outputs      Json?
+  /// Tempo, CPU e memória de cada render
+  renderReport Json?
+  error        String?
+  createdBy    String
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  assets       ProductionAsset[]
+
+  @@index([status])
+  @@index([storyId])
+  @@index([createdAt])
+}
+
+/// Que mídia cada vídeo usou (revogação de direitos lista os vídeos afetados).
+model ProductionAsset {
+  productionId String
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset      @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  /// "cena" | "thumbnail"
+  role         String
+  scene        Int        @default(0)
+
+  @@id([productionId, assetId, role, scene])
+  @@index([assetId])
 }

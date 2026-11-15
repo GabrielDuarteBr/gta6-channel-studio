@@ -300,3 +300,132 @@ def video_frame_hashes(video_rel: str) -> dict:
     )
     hashes = [line.split(",")[-1].strip() for line in raw.splitlines() if line and line[0] != "#"]
     return {"frames": len(hashes), "hashes": hashes}
+
+
+# ---------------------------------------------------------------------------
+# Fase 3: imagens da Biblioteca na pasta de trabalho e quadros para o Revisor visual
+# ---------------------------------------------------------------------------
+
+MAX_IMAGE_BYTES = 25 * 1024 * 1024
+IMAGE_SUFFIXES = {".png": b"\x89PNG\r\n\x1a\n", ".jpg": b"\xff\xd8", ".webp": b"RIFF"}
+MAX_KEYFRAMES = 16
+
+
+def _run_bytes(args: list[str], timeout: float) -> bytes:
+    try:
+        out = subprocess.run(  # noqa: S603 - binário fixo, argumentos montados aqui
+            args, check=True, capture_output=True, timeout=timeout
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or b"").decode(errors="replace").strip().splitlines()[-1:] or [""]
+        raise MediaToolError(f"{Path(args[0]).name} falhou: {detail[0][:300]}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise MediaToolError(f"{Path(args[0]).name} demorou demais") from exc
+    return out.stdout
+
+
+def import_image(out_rel: str, data_b64: str) -> dict:
+    """Grava uma imagem da Biblioteca na pasta de trabalho (para o render), conferindo o tipo."""
+    out = safe_path(out_rel)
+    magic = IMAGE_SUFFIXES.get(out.suffix)
+    if magic is None:
+        raise MediaToolError("a saída precisa ser .png, .jpg ou .webp")
+    if len(data_b64) > MAX_IMAGE_BYTES * 4 // 3 + 4:
+        raise MediaToolError("imagem grande demais")
+    try:
+        data = base64.b64decode(data_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise MediaToolError("imagem não está em base64") from exc
+    if not data.startswith(magic) or (out.suffix == ".webp" and data[8:12] != b"WEBP"):
+        raise MediaToolError("o conteúdo não bate com a extensão da imagem")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(f".{out.name}.tmp")
+    tmp.write_bytes(data)
+    tmp.replace(out)
+    return {"path": _relative(out), "bytes": len(data)}
+
+
+def file_info(rel: str) -> dict:
+    """Existe? Quantos bytes? (para não copiar de novo uma imagem que já está lá)."""
+    path = safe_path(rel)
+    if not path.is_file():
+        return {"exists": False}
+    return {"exists": True, "path": _relative(path), "bytes": path.stat().st_size}
+
+
+def _jpeg_b64(args: list[str]) -> str:
+    data = _run_bytes(args, timeout=120)
+    if not data.startswith(b"\xff\xd8"):
+        raise MediaToolError("não saiu JPEG")
+    return base64.b64encode(data).decode()
+
+
+def video_keyframes(video_rel: str, times: list[float], width: int = 768) -> dict:
+    """Quadros (JPEG, base64) nos instantes pedidos, reduzidos para o Revisor visual."""
+    src = safe_path(video_rel)
+    if not src.is_file():
+        raise MediaToolError("vídeo não encontrado")
+    if not 1 <= len(times) <= MAX_KEYFRAMES:
+        raise MediaToolError(f"peça de 1 a {MAX_KEYFRAMES} quadros")
+    if not 256 <= width <= 1280:
+        raise MediaToolError("largura entre 256 e 1280")
+    frames = []
+    for t in times:
+        if t < 0:
+            raise MediaToolError("instante negativo")
+        data = _jpeg_b64(
+            [
+                _binary("ffmpeg"),
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-ss",
+                f"{t:.3f}",
+                "-i",
+                str(src),
+                "-frames:v",
+                "1",
+                "-vf",
+                f"scale={width}:-2",
+                "-q:v",
+                "4",
+                "-f",
+                "image2pipe",
+                "-vcodec",
+                "mjpeg",
+                "-",
+            ]
+        )
+        frames.append({"t": round(t, 3), "jpeg_b64": data})
+    return {"frames": frames}
+
+
+def image_preview(image_rel: str, width: int = 768) -> dict:
+    """Prévia JPEG (base64) de uma imagem da pasta de trabalho (ex.: thumbnail para o Revisor)."""
+    src = safe_path(image_rel)
+    if not src.is_file() or src.suffix not in IMAGE_SUFFIXES:
+        raise MediaToolError("imagem não encontrada")
+    if not 256 <= width <= 1280:
+        raise MediaToolError("largura entre 256 e 1280")
+    data = _jpeg_b64(
+        [
+            _binary("ffmpeg"),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(src),
+            "-frames:v",
+            "1",
+            "-vf",
+            f"scale={width}:-2",
+            "-q:v",
+            "4",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            "mjpeg",
+            "-",
+        ]
+    )
+    return {"jpeg_b64": data}

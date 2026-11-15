@@ -43,6 +43,12 @@ const lipsyncSchema = z.object({
   mouth_cues: z.array(z.object({ start: z.number(), end: z.number(), value: z.string() })),
 });
 const hashesSchema = z.object({ frames: z.number(), hashes: z.array(z.string()) });
+const imageImportSchema = z.object({ path: z.string(), bytes: z.number() });
+const fileInfoSchema = z.object({ exists: z.boolean(), bytes: z.number().optional() });
+const keyframesSchema = z.object({
+  frames: z.array(z.object({ t: z.number(), jpeg_b64: z.string() })),
+});
+const previewSchema = z.object({ jpeg_b64: z.string() });
 
 export class MediaService {
   constructor(
@@ -85,6 +91,50 @@ export class MediaService {
     return { durationSec: r.duration_sec, mouthCues: r.mouth_cues };
   }
 
+  /** Copia uma imagem (bytes) para a pasta de trabalho, onde o render enxerga. */
+  async importImage(out: string, bytes: Uint8Array) {
+    return call(
+      this.fetchImpl,
+      `${this.baseUrl}/image/import`,
+      imageImportSchema,
+      json({ out, data_b64: Buffer.from(bytes).toString('base64') }, 120_000),
+      'copiar imagem para a pasta de trabalho',
+    );
+  }
+
+  fileInfo(path: string) {
+    return call(
+      this.fetchImpl,
+      `${this.baseUrl}/file/info`,
+      fileInfoSchema,
+      json({ path }, 30_000),
+      'arquivo na pasta de trabalho',
+    );
+  }
+
+  /** Quadros JPEG (base64) do vídeo nos instantes pedidos (para o Revisor visual). */
+  async keyframes(video: string, times: number[], width = 768) {
+    const r = await call(
+      this.fetchImpl,
+      `${this.baseUrl}/video/keyframes`,
+      keyframesSchema,
+      json({ video, times, width }, 280_000),
+      'quadros do vídeo',
+    );
+    return r.frames.map((f) => ({ t: f.t, jpegBase64: f.jpeg_b64 }));
+  }
+
+  async preview(image: string, width = 768) {
+    const r = await call(
+      this.fetchImpl,
+      `${this.baseUrl}/image/preview`,
+      previewSchema,
+      json({ image, width }, 120_000),
+      'prévia da imagem',
+    );
+    return r.jpeg_b64;
+  }
+
   frameHashes(video: string) {
     return call(
       this.fetchImpl,
@@ -108,17 +158,27 @@ const renderJobSchema = z.object({
       frames: z.number(),
       seconds: z.number(),
       bytes: z.number(),
+      /** Segundos de CPU do container de render durante este trabalho. */
+      cpuSeconds: z.number().optional(),
+      /** Pico de memória do container de render (MB) durante este trabalho. */
+      peakMemoryMb: z.number().optional(),
+      /** "cgroup" (container inteiro, com o Chrome) ou "processo" (só o Node). */
+      metricsSource: z.string().optional(),
     })
     .optional(),
 });
 export type RenderReport = NonNullable<z.infer<typeof renderJobSchema>['report']>;
 
 export interface RenderRequest {
-  composition: 'ZecaClip' | 'RivePoc';
+  composition: 'ZecaClip' | 'RivePoc' | 'NewsVideo' | 'Thumbnail';
   props: Record<string, unknown>;
+  /** .mp4 para vídeo; .png para quadro único (thumbnail). */
   output: string;
   audio?: string;
   vertical?: boolean;
+  height?: 720 | 1080;
+  /** Quadro único (thumbnail) em vez de vídeo. */
+  still?: boolean;
 }
 
 export class RenderService {

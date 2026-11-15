@@ -71,6 +71,50 @@ export const SETTINGS = {
       layout: 'landscape',
     }),
 
+  /**
+   * Produção de vídeos (Fase 3). Modelos do roteirista e do revisor visual (custo por vídeo),
+   * duração-alvo e voltas máximas do Revisor.
+   */
+  production: z
+    .object({
+      writerModel: z.enum(['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5']),
+      reviewerModel: z.enum(['claude-sonnet-5-5', 'claude-opus-5-5']),
+      longTargetSec: z.number().int().min(90).max(600),
+      shortTargetSec: z.number().int().min(20).max(58),
+      maxReviewRounds: z.number().int().min(1).max(3),
+    })
+    .default({
+      writerModel: 'claude-sonnet-5-5',
+      reviewerModel: 'claude-sonnet-5-5',
+      longTargetSec: 210,
+      shortTargetSec: 45,
+      maxReviewRounds: 3,
+    }),
+
+  /**
+   * Imagens geradas (Fase 3): Google (Imagen 4 / Gemini "Nano Banana") ou falsas (teste).
+   * Com o modo simulado ligado, as imagens são falsas. O modelo vem da lista da API
+   * (`make imagens`); o guia de estilo entra em todo pedido.
+   */
+  images: z
+    .object({
+      provider: z.enum(['google', 'fake']),
+      model: z.string().regex(/^[a-z0-9][a-z0-9.-]{2,80}$/),
+      maxPerLong: z.number().int().min(0).max(20),
+      maxPerShort: z.number().int().min(0).max(8),
+      style: z.string().min(10).max(600),
+    })
+    .default({
+      provider: 'google',
+      model: 'imagen-4.0-fast-generate-001',
+      maxPerLong: 6,
+      maxPerShort: 2,
+      style:
+        'Editorial digital illustration, neon synthwave palette (magenta, cyan, sunset orange), ' +
+        'Miami-style tropical city at dusk, cinematic lighting, clean composition with empty ' +
+        'space for captions. No text, no logos, no watermarks, no real people, no copyrighted characters.',
+    }),
+
   antiSpoiler: z
     .object({
       launchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

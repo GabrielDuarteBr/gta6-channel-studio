@@ -17,11 +17,15 @@ from app.media_tools import (
     MediaToolError,
     audio_info,
     ffmpeg_version,
+    file_info,
+    image_preview,
+    import_image,
     import_wav,
     lipsync,
     tool_versions,
     tts_espeak,
     video_frame_hashes,
+    video_keyframes,
     voice_track,
 )
 
@@ -122,3 +126,43 @@ def import_route(body: ImportIn) -> dict:
 @app.post("/audio/info")
 def info_route(body: AudioIn) -> dict:
     return audio_info(body.audio)
+
+
+class ImageImportIn(BaseModel):
+    out: str = RelPath
+    data_b64: str = Field(min_length=60, max_length=36_000_000)
+
+
+@app.post("/image/import")
+def image_import_route(body: ImageImportIn) -> dict:
+    return import_image(body.out, body.data_b64)
+
+
+class FileIn(BaseModel):
+    path: str = RelPath
+
+
+@app.post("/file/info")
+def file_info_route(body: FileIn) -> dict:
+    return file_info(body.path)
+
+
+class KeyframesIn(BaseModel):
+    video: str = RelPath
+    times: list[float] = Field(min_length=1, max_length=16)
+    width: int = Field(default=768, ge=256, le=1280)
+
+
+@app.post("/video/keyframes")
+def keyframes_route(body: KeyframesIn) -> dict:
+    return video_keyframes(body.video, body.times, body.width)
+
+
+class PreviewIn(BaseModel):
+    image: str = RelPath
+    width: int = Field(default=768, ge=256, le=1280)
+
+
+@app.post("/image/preview")
+def preview_route(body: PreviewIn) -> dict:
+    return image_preview(body.image, body.width)

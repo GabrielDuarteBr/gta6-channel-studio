@@ -50,6 +50,22 @@ function valueFor(key: SettingKey, form: FormData): unknown {
         allowPaid: form.get('allowPaid') === 'on',
         layout: String(form.get('layout') ?? 'landscape'),
       };
+    case 'production':
+      return {
+        writerModel: String(form.get('writerModel') ?? ''),
+        reviewerModel: String(form.get('reviewerModel') ?? ''),
+        longTargetSec: num(form, 'longTargetSec'),
+        shortTargetSec: num(form, 'shortTargetSec'),
+        maxReviewRounds: num(form, 'maxReviewRounds'),
+      };
+    case 'images':
+      return {
+        provider: String(form.get('provider') ?? 'fake'),
+        model: String(form.get('model') ?? '').trim(),
+        maxPerLong: num(form, 'maxPerLong'),
+        maxPerShort: num(form, 'maxPerShort'),
+        style: String(form.get('style') ?? '').trim(),
+      };
     case 'channel.identity':
       return {
         channelName: String(form.get('channelName') ?? '').trim(),

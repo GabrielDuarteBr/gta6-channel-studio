@@ -3,10 +3,16 @@ import { auth } from '@/auth';
 
 /**
  * Entrega ao navegador do dono os vídeos/áudios gerados (pasta de trabalho do render,
- * que só existe na rede interna). Exige login; só clips/*.mp4|.wav; repassa Range
+ * que só existe na rede interna). Exige login; só clipes e saídas de produção; repassa Range
  * para o player poder avançar e voltar.
  */
-const ALLOWED = /^clips\/[0-9a-f]{16}\/[A-Za-z0-9_-]{1,40}\.(mp4|wav)$/;
+const ALLOWED = new RegExp(
+  [
+    '^clips/[0-9a-f]{16}/[A-Za-z0-9_-]{1,40}\\.(mp4|wav)$',
+    // Fase 3: vídeo e thumbnails de cada volta de uma produção
+    '^productions/[a-z0-9]{8,40}/r[0-9]{1,2}/(video\\.mp4|thumb-[1-3]\\.png)$',
+  ].join('|'),
+);
 
 export async function GET(
   req: Request,

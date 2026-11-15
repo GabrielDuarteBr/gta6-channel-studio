@@ -12,14 +12,17 @@
     "zeca": "tsx src/scripts/character-clip.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
     "@studio/avatar": "workspace:*",
     "@studio/db": "workspace:*",
     "@studio/llm": "workspace:*",
     "@studio/policy": "workspace:*",
+    "@studio/production": "workspace:*",
     "@studio/providers": "workspace:*",
     "@studio/queue": "workspace:*",
     "@studio/research": "workspace:*",
     "@studio/shared": "workspace:*",
+    "@studio/storage": "workspace:*",
     "tsx": "4.23.15",
     "zod": "4.6.7"
   }

@@ -56,7 +56,9 @@ packages/research  feeds RSS/Atom/RDF, páginas sem feed, YouTube (metadados), U
 packages/llm       cliente Claude com saída estruturada (zod), teto de gasto e CostLedger
 packages/avatar    personagem: marcações do roteiro, linha do tempo, piscadas, bíblia (zod) e a
                    arte em camadas do Zeca (`@studio/avatar/art`, React puro, usada no render e no painel)
-packages/providers provedores plugáveis (voz/TTS; imagem e upload nas próximas fases), com Fake
+packages/providers provedores plugáveis (voz/TTS e imagem; upload na Fase 5), com Fake
+packages/storage   S3 (SeaweedFS), leitura do tipo de imagem pelos bytes e a Biblioteca (manifesto)
+packages/production roteiro do vídeo (zod), plano do vídeo (cenas, legendas, fonte, rumor), thumbnails
 e2e                Playwright (pilha isolada)
 infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, SeaweedFS
 ```
@@ -97,6 +99,23 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   `allowPaid`, e teto de gasto; caracteres no `CostLedger.characters`. Modo simulado = voz de teste,
   salvo pedido explícito no clipe (`tts: 'google'`). `make vozes` lista as vozes da chave e gera
   amostras.
+- **Notícias em vídeo (Fase 3)**: Pauta → "Produzir" (tela Produção; nunca automático) → job
+  `production.run` na fila `render`, em `apps/agents/src/production/pipeline.ts`, com retomada pelo
+  banco (`Production.script/plan/outputs/review`): Roteirista (`writer.ts`, Sonnet 5.5, bíblia no
+  system em cache, saída estruturada; o código confere `finalizeScript` + `checkScript` e pede UMA
+  correção) → Diretor de arte (`art.ts`: Biblioteca com manifesto ativo, ou gera com Imagen/Gemini
+  via `packages/providers/src/image.ts`; mesmo prompt não é pago 2×; imagem vira mídia com manifesto
+  `IMAGE_PROVIDER`) → voz por trecho + Rhubarb → `buildVideoPlan` → 3ª camada (`assertAssetRenderable`
+  no banco, `assertOriginalCommentary`) → render `NewsVideo` + 3 `Thumbnail` (stills) → Revisor
+  (`review.ts`: quadros-chave do worker-media + thumbnails para o Claude com visão; o código decide a
+  aprovação; correções fechadas: trocar imagem da cena, descartar thumbnail) até
+  `production.maxReviewRounds`. Claude Sonnet/Opus 5.5 com fallback do servidor
+  (`fallbacks: 'default'`). Custo por vídeo em `CostLedger.productionId`; render reporta CPU e pico de
+  memória do cgroup do container. Limite diário (`limits.daily`) no "Produzir". Biblioteca: S3 com
+  nome pelo sha256, upload do dono e importação só de rockstargames.com/take2games.com
+  (`fetchOfficialImage`, nunca YouTube). Tela Arte: aprovar (tag `aprovada` → o Roteirista pode
+  reutilizar), variação (job `art.variation` na fila `image`), descartar (revoga). Fontes Anton e
+  Inter embutidas (Fontsource, OFL). Chave `GEMINI_API_KEY` só no `.env`.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -118,6 +137,9 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make coletar` | coleta notícias agora (pela fila) e imprime o resultado por fonte |
 | `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`, `VOZ=google`) |
 | `make vozes` | vozes Chirp 3 HD da chave + amostras (`AMOSTRAS=0` só lista) |
+| `make produzir` | produz um vídeo pela fila e espera (`FORMATO=LONG`, `HISTORIA=`, `REAL=1`) |
+| `make imagens` | modelos de imagem da chave Gemini (`COMPARAR=1` gera o comparativo, pago) |
+| `make accept-3` | aceite da Fase 3 (Short + longo + thumbnails + Revisor, render repetível, direitos; `REAL=1` mede custo) |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
 | `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
 | `make accept-2` | aceite da Fase 2 (clipe 2× com quadros idênticos, Short, testes) |

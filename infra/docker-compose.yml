@@ -132,6 +132,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Voz do Zeca (Google Cloud Text-to-Speech, Chirp 3 HD). Vazia = só a voz de teste.
       GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY:-}
+      # Imagens geradas (Gemini API: Imagen 4 / "Nano Banana"). Vazia = só imagens de teste.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
