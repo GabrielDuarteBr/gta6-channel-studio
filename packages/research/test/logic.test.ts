@@ -5,6 +5,7 @@ import {
   headlineSimilarity,
   isAboutGta6,
   normalizeText,
+  prepareItems,
   registrableDomain,
   scoreStory,
   storyTokens,
@@ -17,6 +18,24 @@ describe('URLs', () => {
     );
     expect(canonicalUrl('/rel', 'https://x.com/base')).toBe('https://x.com/rel');
     expect(canonicalUrl('javascript:alert(1)')).toBeNull();
+  });
+
+  it('link completo com "base" que não é URL (fontes do YouTube: @handle ou termo de busca)', () => {
+    // Aceite da Fase 1: new URL(link, '@RockstarGames') lançava erro e todo vídeo era descartado.
+    const watch = 'https://www.youtube.com/watch?v=abc123';
+    expect(canonicalUrl(watch, '@RockstarGames')).toBe(watch);
+    expect(canonicalUrl(watch, 'GTA 6')).toBe(watch);
+    expect(canonicalUrl('/relativo', 'GTA 6')).toBeNull();
+  });
+
+  it('vídeos do YouTube passam pela preparação (canal oficial e busca)', () => {
+    const raw = [
+      { url: 'https://www.youtube.com/watch?v=v1', title: 'Grand Theft Auto VI: Launch Trailer' },
+      { url: 'https://www.youtube.com/watch?v=v2', title: 'Red Dead Online: Bonuses This Week' },
+    ];
+    const official = prepareItems(raw, { tier: 'OFFICIAL', config: {}, url: '@RockstarGames' });
+    expect(official.map((i) => i.url)).toEqual(['https://www.youtube.com/watch?v=v1']);
+    expect(prepareItems(raw, { tier: 'COMMUNITY', url: 'GTA 6' })).toHaveLength(1);
   });
 
   it('domínio registrável', () => {

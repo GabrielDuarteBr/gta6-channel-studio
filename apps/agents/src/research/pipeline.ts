@@ -38,7 +38,7 @@ export interface PipelineContext {
 
 export interface SourceRunSummary {
   source: string;
-  status: CollectResult['status'] | 'sem chave' | 'pulada';
+  status: CollectResult['status'] | 'sem chave' | 'pulada' | 'sem links';
   fetched: number;
   relevant: number;
   newItems: number;
@@ -200,13 +200,25 @@ export async function collectAll(ctx: PipelineContext): Promise<SourceRunSummary
 
     const newItems = result.status === 'ok' ? await saveItems(prisma, source.id, result.items) : 0;
     const previous = (source.resolved as Record<string, unknown> | null) ?? {};
+    // Respondeu, mas sem nenhum link/entrada: não é "ok" (ex.: página montada por JavaScript).
+    let status: SourceRunSummary['status'] = result.status;
+    let error = result.error;
+    if (result.status === 'ok' && result.fetched === 0 && source.kind !== 'YOUTUBE_SEARCH') {
+      status = 'sem links';
+      error =
+        source.kind === 'PAGE'
+          ? 'A página respondeu, mas sem nenhum link de artigo. Ela pode ser montada por JavaScript (o estúdio só lê o HTML).'
+          : source.kind === 'RSS'
+            ? 'O feed respondeu, mas veio vazio.'
+            : 'O canal respondeu, mas sem vídeos recentes.';
+    }
     await prisma.source.update({
       where: { id: source.id },
       data: {
         lastFetchedAt: now,
-        lastStatus: result.status,
-        lastError: result.error ?? null,
-        ...(result.status === 'ok' ? { lastOkAt: now, lastItemCount: result.items.length } : {}),
+        lastStatus: status,
+        lastError: error ?? null,
+        ...(status === 'ok' ? { lastOkAt: now, lastItemCount: result.items.length } : {}),
         ...(result.etag !== undefined ? { etag: result.etag } : {}),
         ...(result.lastModified !== undefined ? { lastModified: result.lastModified } : {}),
         ...(result.resolved ? { resolved: json({ ...previous, ...result.resolved }) } : {}),
@@ -214,11 +226,11 @@ export async function collectAll(ctx: PipelineContext): Promise<SourceRunSummary
     });
     return {
       source: source.name,
-      status: result.status,
+      status,
       fetched: result.fetched,
       relevant: result.items.length,
       newItems,
-      error: result.error,
+      error,
     };
   });
   return runWithLimit(tasks, 4);

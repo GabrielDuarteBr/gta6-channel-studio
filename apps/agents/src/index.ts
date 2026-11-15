@@ -12,7 +12,7 @@ import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
 import { runResearch } from './research/pipeline';
 import { COLLECT_JOB, ensureResearchSchedule, RESEARCH_SCHEDULER_ID } from './research/schedule';
-import { seedDefaultSources } from './research/sources';
+import { applyDefaultSourceFixes, seedDefaultSources } from './research/sources';
 
 const log = createLogger('agents');
 const env = parseEnv(baseEnvSchema.merge(databaseEnvSchema).merge(redisEnvSchema));
@@ -42,6 +42,9 @@ async function main(): Promise<void> {
   // Pesquisa: fontes padrão, coleta agendada e recuperação após o notebook dormir.
   const seeded = await seedDefaultSources(prisma);
   if (seeded > 0) log.info({ seeded }, 'fontes padrão criadas');
+  const fixed = await applyDefaultSourceFixes(prisma);
+  if (fixed.length > 0)
+    log.warn({ fixed }, 'fontes padrão desativadas (correção registrada na auditoria)');
   const researchQueue = createQueue('research', connection);
   let intervalMinutes = (await getAllSettings(prisma)).research.intervalMinutes;
   // RESEARCH_SCHEDULE=off só na pilha de testes: sem coleta automática (a manual continua).

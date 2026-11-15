@@ -5,7 +5,7 @@ import type { FetchLike } from '@studio/research';
 import { createLogger } from '@studio/shared';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { clusterAndScore, collectAll, runResearch, triageStories } from '../src/research/pipeline';
-import { seedDefaultSources } from '../src/research/sources';
+import { applyDefaultSourceFixes, seedDefaultSources } from '../src/research/sources';
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -158,5 +158,147 @@ d('pipeline de pesquisa (integração com Postgres)', () => {
         'owner',
       ),
     ).rejects.toThrow();
+  });
+
+  it('com chave do YouTube: canal oficial e busca entram na pauta (só metadados)', async () => {
+    // API falsa do YouTube: responde pelo nome do método e confere que a chave foi enviada.
+    const calls: string[] = [];
+    const youtube: Record<string, unknown> = {
+      channels: {
+        items: [
+          {
+            id: 'UC1',
+            snippet: { title: 'Rockstar Games' },
+            contentDetails: { relatedPlaylists: { uploads: 'UU1' } },
+          },
+        ],
+      },
+      playlistItems: {
+        items: [
+          {
+            snippet: {
+              title: 'Grand Theft Auto VI: Launch Trailer',
+              channelTitle: 'Rockstar Games',
+              resourceId: { videoId: 'vidOficial' },
+            },
+            contentDetails: { videoPublishedAt: '2026-11-09T16:00:00Z' },
+          },
+          {
+            snippet: { title: 'Red Dead Online: Bonuses', resourceId: { videoId: 'vidRdo' } },
+            contentDetails: { videoPublishedAt: '2026-11-09T15:00:00Z' },
+          },
+        ],
+      },
+      search: {
+        items: [
+          {
+            id: { videoId: 'vidBusca' },
+            snippet: {
+              title: 'GTA 6 Launch Trailer Breakdown',
+              channelTitle: 'Canal de fã',
+              publishedAt: '2026-11-09T17:00:00Z',
+            },
+          },
+        ],
+      },
+      videos: { items: [{ id: 'vidOficial', statistics: { viewCount: '1000000' } }] },
+    };
+    const fetchWithYoutube: FetchLike = async (u, init) => {
+      if (u.startsWith('https://www.googleapis.com/youtube/v3/')) {
+        const url = new URL(u);
+        const method = url.pathname.split('/').pop() ?? '';
+        calls.push(method);
+        if (url.searchParams.get('key') !== 'chave-teste')
+          return new Response('{}', { status: 400 });
+        return new Response(JSON.stringify(youtube[method] ?? {}), { status: 200 });
+      }
+      return fakeFetch(u, init);
+    };
+    await prisma.source.create({
+      data: {
+        key: 't-busca',
+        name: 'Busca',
+        kind: 'YOUTUBE_SEARCH',
+        tier: 'COMMUNITY',
+        url: 'GTA 6',
+      },
+    });
+    const summary = await collectAll({
+      ...ctx,
+      youtubeApiKey: 'chave-teste',
+      fetchImpl: fetchWithYoutube,
+    });
+    const by = Object.fromEntries(summary.map((x) => [x.source, x]));
+    expect(by['YouTube']).toMatchObject({ status: 'ok', fetched: 2, relevant: 1, newItems: 1 });
+    expect(by['Busca']).toMatchObject({ status: 'ok', relevant: 1, newItems: 1 });
+    const urls = (await prisma.newsItem.findMany({ select: { url: true } })).map((i) => i.url);
+    expect(urls).toContain('https://www.youtube.com/watch?v=vidOficial');
+    expect(urls).toContain('https://www.youtube.com/watch?v=vidBusca');
+    expect(urls).not.toContain('https://www.youtube.com/watch?v=vidRdo');
+    const official = await prisma.newsItem.findUniqueOrThrow({
+      where: { url: 'https://www.youtube.com/watch?v=vidOficial' },
+    });
+    expect((official.metrics as { views?: number }).views).toBe(1_000_000);
+    const yt = await prisma.source.findFirstOrThrow({ where: { key: 't-yt' } });
+    expect((yt.resolved as { uploadsPlaylistId?: string }).uploadsPlaylistId).toBe('UU1');
+    expect(calls).toEqual(
+      expect.arrayContaining(['channels', 'playlistItems', 'search', 'videos']),
+    );
+    const quota = await prisma.quotaLedger.groupBy({ by: ['bucket'], _sum: { units: true } });
+    expect(quota.find((q) => q.bucket === 'search.list')?._sum.units).toBe(1);
+  });
+
+  it('página que responde sem nenhum link fica "sem links" (não "ok")', async () => {
+    await prisma.source.create({
+      data: {
+        key: 't-vazia',
+        name: 'Página vazia',
+        kind: 'PAGE',
+        tier: 'OFFICIAL',
+        url: 'https://vazia.example.com/newswire',
+        config: { linkPattern: '/newswire/article/' },
+      },
+    });
+    const emptyPage: FetchLike = async (u, init) =>
+      u === 'https://vazia.example.com/newswire'
+        ? new Response('<html><body><div id="root"></div></body></html>', { status: 200 })
+        : fakeFetch(u, init);
+    const summary = await collectAll({ ...ctx, fetchImpl: emptyPage });
+    expect(summary.find((x) => x.source === 'Página vazia')?.status).toBe('sem links');
+    const page = await prisma.source.findFirstOrThrow({ where: { key: 't-vazia' } });
+    expect(page.lastStatus).toBe('sem links');
+    expect(page.lastError).toContain('JavaScript');
+  });
+
+  it('fonte padrão que passou a vir desativada: corrige uma vez e respeita o dono', async () => {
+    await prisma.source.deleteMany();
+    await seedDefaultSources(prisma);
+    // Instalação nova: já nasce desativada, com o motivo.
+    const fresh = await prisma.source.findUniqueOrThrow({ where: { key: 'adrenaline' } });
+    expect(fresh.enabled).toBe(false);
+    expect(fresh.lastError).toContain('403');
+
+    // Instalação antiga (Fase 1): as duas estavam ativas; uma o dono já tinha editado.
+    await prisma.source.update({
+      where: { key: 'adrenaline' },
+      data: { enabled: true, lastStatus: 'erro', lastError: 'HTTP 403' },
+    });
+    await prisma.source.update({
+      where: { key: 'take-two-ir' },
+      data: { enabled: true, url: 'https://exemplo.com/ir-novo' },
+    });
+    expect(await applyDefaultSourceFixes(prisma)).toEqual(['adrenaline']);
+    const fixed = await prisma.source.findUniqueOrThrow({ where: { key: 'adrenaline' } });
+    expect(fixed).toMatchObject({ enabled: false, lastStatus: 'desativada' });
+    const edited = await prisma.source.findUniqueOrThrow({ where: { key: 'take-two-ir' } });
+    expect(edited.enabled).toBe(true); // o dono mudou o endereço: não mexe
+    expect(await prisma.auditLog.count({ where: { action: 'source.default-fix' } })).toBe(2);
+
+    // O dono reativa: a correção não volta a desativar.
+    await prisma.source.update({ where: { key: 'adrenaline' }, data: { enabled: true } });
+    expect(await applyDefaultSourceFixes(prisma)).toEqual([]);
+    expect((await prisma.source.findUniqueOrThrow({ where: { key: 'adrenaline' } })).enabled).toBe(
+      true,
+    );
   });
 });

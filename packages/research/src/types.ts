@@ -13,6 +13,8 @@ export interface SourceDefinition {
   language: string;
   config?: { linkPattern?: string; gtaOnly?: boolean };
   enabled?: boolean;
+  /** Por que a fonte padrão vem desativada (aparece na tela Fontes). */
+  disabledReason?: string;
 }
 
 /** Item como veio da fonte, antes de normalizar. */

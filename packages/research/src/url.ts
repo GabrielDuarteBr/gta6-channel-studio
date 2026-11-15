@@ -7,9 +7,12 @@ const TRACKING_PARAMS =
  * sem fragmento, sem parâmetros de rastreamento e sem barra final.
  */
 export function canonicalUrl(raw: string, base?: string): string | null {
+  // A "base" só serve para links relativos. Nas fontes do YouTube o endereço é um @handle ou
+  // um termo de busca, e new URL(linkCompleto, baseInválida) lança erro mesmo assim.
+  const validBase = base && URL.canParse(base) ? base : undefined;
   let url: URL;
   try {
-    url = new URL(raw.trim(), base);
+    url = new URL(raw.trim(), validBase);
   } catch {
     return null;
   }

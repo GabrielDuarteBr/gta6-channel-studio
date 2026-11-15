@@ -37,6 +37,10 @@ export const DEFAULT_SOURCES: SourceDefinition[] = [
     url: 'https://www.take2games.com/ir/news',
     language: 'en',
     config: { linkPattern: '/ir/news/' },
+    // Aceite da Fase 1 (15/11/2026): HTTP 404 no notebook do dono.
+    enabled: false,
+    disabledReason:
+      'Desativada: este endereço da Take-Two deixou de existir (HTTP 404). Se achar a página atual de notícias para investidores, cole o endereço aqui e reative.',
   },
 
   // Imprensa (EN)
@@ -121,6 +125,10 @@ export const DEFAULT_SOURCES: SourceDefinition[] = [
     tier: 'PRESS',
     url: 'https://adrenaline.com.br/',
     language: 'pt-BR',
+    // Aceite da Fase 1 (15/11/2026): HTTP 403. O estúdio não contorna bloqueio de robôs.
+    enabled: false,
+    disabledReason:
+      'Desativada: o site bloqueia leitores automáticos (HTTP 403) e o estúdio não contorna bloqueio.',
   },
 
   // Comunidade (rumores aparecem aqui; precisam de 2 fontes independentes)
