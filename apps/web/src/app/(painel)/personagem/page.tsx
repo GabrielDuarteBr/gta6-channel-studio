@@ -84,7 +84,7 @@ export default async function CharacterPage() {
             {MOUTH_SHAPES.map((mouth) => (
               <li key={mouth} className="text-center" title={MOUTH_LABEL[mouth]}>
                 <div className="overflow-hidden rounded-lg bg-night-900">
-                  <div className="-mb-[60%] -mt-[22%] scale-[1.9]">
+                  <div className="-my-[40%] scale-[2.1]">
                     <ZecaArt state={{ ...IDLE_STATE, mouth }} provisional={false} />
                   </div>
                 </div>
