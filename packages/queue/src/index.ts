@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   Queue,
+  UnrecoverableError,
   Worker,
   type ConnectionOptions,
   type Job,
@@ -102,4 +103,4 @@ export function createWorker<T = unknown, R = unknown>(
   });
 }
 
-export { Queue, Worker, type Job };
+export { Queue, UnrecoverableError, Worker, type Job };

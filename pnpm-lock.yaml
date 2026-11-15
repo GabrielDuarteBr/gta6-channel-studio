@@ -47,6 +47,9 @@ importers:
 
   apps/agents:
     dependencies:
+      '@studio/avatar':
+        specifier: workspace:*
+        version: link:../../packages/avatar
       '@studio/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -56,6 +59,9 @@ importers:
       '@studio/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@studio/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@studio/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -68,6 +74,9 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   apps/render:
     dependencies:
@@ -80,6 +89,15 @@ importers:
       '@remotion/renderer':
         specifier: 4.0.542
         version: 4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@remotion/rive':
+        specifier: 4.0.542
+        version: 4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@rive-app/canvas-advanced':
+        specifier: 2.31.5
+        version: 2.31.5
+      '@studio/avatar':
+        specifier: workspace:*
+        version: link:../../packages/avatar
       '@studio/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -212,6 +230,9 @@ importers:
       '@prisma/client':
         specifier: 7.10.1
         version: 7.10.1(prisma@7.10.1(@types/node@22.20.5)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3))(typescript@6.0.3)
+      '@studio/avatar':
+        specifier: workspace:*
+        version: link:../avatar
       '@studio/shared':
         specifier: workspace:*
         version: link:../shared
@@ -245,6 +266,12 @@ importers:
         version: 4.6.7
 
   packages/policy: {}
+
+  packages/providers:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/queue:
     dependencies:
@@ -1470,6 +1497,12 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/rive@4.0.542':
+    resolution: {integrity: sha512-ujCFtEDlByc00EtSYyLcjIr1xEtiRL3t3aTeclDXrIpPI2t3QgUaC6A/wy3O2329U+rUUSf3mpGN2SHnQBHlbw==}
+    peerDependencies:
+      react: '>=18.2.0'
+      react-dom: '>=18.2.0'
+
   '@remotion/sdk@4.0.542':
     resolution: {integrity: sha512-CmNYP38ICy7DA5pQxbF5UN+DF5VwKAYmyoGLo+fGavlWjthChfSJyAYiF+mXiWEM/4bQUSbEJFsBQQb4vuQ1jg==}
     peerDependencies:
@@ -1512,6 +1545,9 @@ packages:
 
   '@remotion/zod-types@4.0.542':
     resolution: {integrity: sha512-8OD04+XXRRm8DUv7roFfuUt8VSmua9oUiIGDazMlFR6pdahv2ok2Aw405F+KkJ7Yjz83P0Obb3xYs7HYQ8+GHw==}
+
+  '@rive-app/canvas-advanced@2.31.5':
+    resolution: {integrity: sha512-zwqLIc5wRF+zFKgDSTJn21+r4N4KWqAe6iVrjDGFzfxxeKDoESrwK7GQ9qVyS6UH2W4SsDRzO6q6jrlw33+yIg==}
 
   '@rolldown/binding-android-arm-eabi@1.2.18':
     resolution: {integrity: sha512-ubTG+4KlidvioxjOFdsdEa2F6JVGZb8m2ByJUqQ7fYzUeT1cEn194POcsQ10PKH4p//q0YQn4SB3YpSuzcA1Yg==}
@@ -5048,6 +5084,13 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@remotion/rive@4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@rive-app/canvas-advanced': 2.31.5
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+      remotion: 4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+
   '@remotion/sdk@4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@remotion/player': 4.0.542(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -5170,6 +5213,8 @@ snapshots:
     transitivePeerDependencies:
       - react
       - react-dom
+
+  '@rive-app/canvas-advanced@2.31.5': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.18':
     optional: true

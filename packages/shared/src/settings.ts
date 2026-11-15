@@ -48,6 +48,14 @@ export const SETTINGS = {
     })
     .default({ intervalMinutes: 30, windowHours: 72, youtubeSearchesPerDay: 4 }),
 
+  /** Personagem (Fase 2). Provedor de voz real entra quando o dono escolher. */
+  character: z
+    .object({
+      ttsProvider: z.enum(['fake']),
+      layout: z.enum(['landscape', 'vertical']),
+    })
+    .default({ ttsProvider: 'fake', layout: 'landscape' }),
+
   antiSpoiler: z
     .object({
       launchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

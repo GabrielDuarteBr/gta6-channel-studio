@@ -1,4 +1,4 @@
-import { audit, getAllSettings, getPrisma } from '@studio/db';
+import { audit, ensureBible, getAllSettings, getPrisma } from '@studio/db';
 import { createQueue, createWorker, redisConnection, type Worker } from '@studio/queue';
 import {
   baseEnvSchema,
@@ -7,7 +7,10 @@ import {
   parseEnv,
   profileDefaults,
   redisEnvSchema,
+  serviceUrlsEnvSchema,
 } from '@studio/shared';
+import { CLIP_JOB } from './character/clip';
+import { runClipJob } from './character/job';
 import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
 import { runResearch } from './research/pipeline';
@@ -15,7 +18,9 @@ import { COLLECT_JOB, ensureResearchSchedule, RESEARCH_SCHEDULER_ID } from './re
 import { applyDefaultSourceFixes, seedDefaultSources } from './research/sources';
 
 const log = createLogger('agents');
-const env = parseEnv(baseEnvSchema.merge(databaseEnvSchema).merge(redisEnvSchema));
+const env = parseEnv(
+  baseEnvSchema.merge(databaseEnvSchema).merge(redisEnvSchema).merge(serviceUrlsEnvSchema),
+);
 const profile = profileDefaults(env.APP_PROFILE);
 const prisma = getPrisma();
 const connection = redisConnection(env.REDIS_URL);
@@ -64,6 +69,12 @@ async function main(): Promise<void> {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
   };
 
+  // Personagem: bíblia v1 na primeira subida; clipes de teste na fila "render".
+  const bibleSeeded = await ensureBible(prisma);
+  if (bibleSeeded) log.info({ version: bibleSeeded }, 'bíblia do personagem criada');
+  const renderQueue = createQueue('render', connection);
+  const clipCtx = { prisma, log, mediaUrl: env.MEDIA_URL, renderUrl: env.RENDER_URL };
+
   const workers: Worker[] = [
     // Uma coleta por vez (agendada, manual ou de recuperação).
     createWorker(
@@ -90,6 +101,18 @@ async function main(): Promise<void> {
       { connection, concurrency: 1, recorder: prismaJobRecorder(prisma) },
     ),
     createWorker(
+      'render',
+      async (job) => {
+        if (job.name !== CLIP_JOB) throw new Error(`job desconhecido na fila render: ${job.name}`);
+        return runClipJob(clipCtx, job.data);
+      },
+      {
+        connection,
+        concurrency: profile.queueConcurrency.render,
+        recorder: prismaJobRecorder(prisma),
+      },
+    ),
+    createWorker(
       'system',
       async (job) => {
         if (job.name === 'heartbeat') return { at: new Date().toISOString() };
@@ -107,15 +130,16 @@ async function main(): Promise<void> {
 
   const server = startHealthServer(Number(process.env.PORT ?? 4100), async () => {
     await prisma.$queryRaw`SELECT 1`;
-    const [system, research] = await Promise.all([
+    const [system, research, render] = await Promise.all([
       systemQueue.getJobCounts('waiting', 'active', 'failed'),
       researchQueue.getJobCounts('waiting', 'active', 'failed'),
+      renderQueue.getJobCounts('waiting', 'active', 'failed'),
     ]);
     return {
       status: 'ok',
       service: 'agents',
       profile: env.APP_PROFILE,
-      queues: { system, research },
+      queues: { system, research, render },
     };
   });
   log.info({ profile: env.APP_PROFILE, simulation: env.SIMULATION_MODE }, 'agents no ar');
@@ -126,6 +150,7 @@ async function main(): Promise<void> {
     await Promise.allSettled(workers.map((w) => w.close()));
     await systemQueue.close();
     await researchQueue.close();
+    await renderQueue.close();
     await prisma.$disconnect();
     process.exit(0);
   };

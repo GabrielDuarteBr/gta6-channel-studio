@@ -8,15 +8,19 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "collect-now": "tsx src/scripts/collect-now.ts"
+    "collect-now": "tsx src/scripts/collect-now.ts",
+    "zeca": "tsx src/scripts/character-clip.ts"
   },
   "dependencies": {
+    "@studio/avatar": "workspace:*",
     "@studio/db": "workspace:*",
     "@studio/llm": "workspace:*",
     "@studio/policy": "workspace:*",
+    "@studio/providers": "workspace:*",
     "@studio/queue": "workspace:*",
     "@studio/research": "workspace:*",
     "@studio/shared": "workspace:*",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "zod": "4.6.7"
   }
 }

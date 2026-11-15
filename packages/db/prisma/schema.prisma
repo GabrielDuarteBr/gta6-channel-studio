@@ -267,3 +267,13 @@ model Story {
   @@index([lastSeenAt])
   @@index([status])
 }
+
+/// Bíblia do personagem (Fase 2). Cada edição cria uma versão nova; a ativa é a maior.
+model CharacterBible {
+  id        String   @id @default(cuid())
+  version   Int      @unique
+  content   Json
+  note      String?
+  createdBy String
+  createdAt DateTime @default(now())
+}

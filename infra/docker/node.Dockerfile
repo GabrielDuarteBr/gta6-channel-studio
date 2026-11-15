@@ -46,6 +46,8 @@ COPY packages/db/package.json packages/db/
 COPY packages/queue/package.json packages/queue/
 COPY packages/research/package.json packages/research/
 COPY packages/llm/package.json packages/llm/
+COPY packages/avatar/package.json packages/avatar/
+COPY packages/providers/package.json packages/providers/
 COPY e2e/package.json e2e/
 RUN --mount=type=secret,id=extra_ca,required=false \
     --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -106,7 +108,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libcairo2 libxshmfence1 \
       fonts-noto-core fonts-noto-color-emoji fonts-liberation2 \
  && rm -rf /var/lib/apt/lists/*
-RUN useradd --create-home --uid 1001 render
+# Mesmo UID do worker-media (1001): os dois leem e gravam a pasta de trabalho compartilhada.
+RUN useradd --create-home --uid 1001 render && mkdir -p /data/work && chown render:render /data/work
 COPY --from=app-prod --chown=render:render /app /app
 WORKDIR /app/apps/render
 USER render

@@ -15,7 +15,7 @@
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check:forbidden": "node scripts/check-forbidden-deps.mjs",
+    "check:forbidden": "node scripts/check-forbidden-deps.mjs && node scripts/check-dockerfile-workspaces.mjs",
     "db:generate": "pnpm --filter @studio/db generate",
     "db:migrate": "pnpm --filter @studio/db migrate:dev",
     "db:deploy": "pnpm --filter @studio/db migrate:deploy",
