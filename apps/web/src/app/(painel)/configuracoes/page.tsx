@@ -6,6 +6,18 @@ import { SettingForm } from './setting-form';
 
 export const metadata: Metadata = { title: 'Configurações' };
 
+/** Sugestões (a lista real da sua chave sai em `make vozes`, com amostras para ouvir). */
+const CHIRP_SUGGESTIONS = [
+  'Puck',
+  'Charon',
+  'Fenrir',
+  'Orus',
+  'Iapetus',
+  'Enceladus',
+  'Algenib',
+  'Alnilam',
+];
+
 export default async function SettingsPage() {
   const { env, settings, profileInfo } = await effectiveState();
   const limits = settings['limits.daily'];
@@ -13,6 +25,7 @@ export default async function SettingsPage() {
   const spoiler = settings.antiSpoiler;
   const identity = settings['channel.identity'];
   const research = settings.research;
+  const character = settings.character;
 
   return (
     <>
@@ -197,6 +210,73 @@ export default async function SettingsPage() {
               />
             </div>
           </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="character"
+          title="Voz do Zeca"
+          description="Google Chirp 3 HD (voz real) ou a voz de teste. Com o modo simulado ligado, os clipes usam a voz de teste. A chave GOOGLE_TTS_API_KEY fica só no .env."
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="ttsProvider">Voz</Label>
+              <Select id="ttsProvider" name="ttsProvider" defaultValue={character.ttsProvider}>
+                <option value="google">Google Chirp 3 HD (real)</option>
+                <option value="fake">Voz de teste (espeak, robótica)</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="googleVoice">Voz do Google</Label>
+              <Input
+                id="googleVoice"
+                name="googleVoice"
+                list="vozes-chirp"
+                defaultValue={character.googleVoice}
+                pattern="[a-z]{2,3}-[A-Z]{2}-Chirp3-HD-[A-Za-z]+"
+              />
+              <datalist id="vozes-chirp">
+                {CHIRP_SUGGESTIONS.map((v) => (
+                  <option key={v} value={`pt-BR-Chirp3-HD-${v}`} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="speakingRate">Velocidade (0,75 a 1,5)</Label>
+              <Input
+                id="speakingRate"
+                name="speakingRate"
+                type="number"
+                step={0.05}
+                min={0.75}
+                max={1.5}
+                defaultValue={character.speakingRate}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="freeCharsPerMonth">Cota grátis do mês (caracteres)</Label>
+              <Input
+                id="freeCharsPerMonth"
+                name="freeCharsPerMonth"
+                type="number"
+                min={0}
+                step={1000}
+                defaultValue={character.freeCharsPerMonth}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="layout">Formato padrão do clipe</Label>
+              <Select id="layout" name="layout" defaultValue={character.layout}>
+                <option value="landscape">Vídeo longo (16:9)</option>
+                <option value="vertical">Short (9:16)</option>
+              </Select>
+            </div>
+          </div>
+          <Toggle
+            name="allowPaid"
+            defaultChecked={character.allowPaid}
+            label="Permitir pagar além da cota grátis"
+            description="Desligado: a voz do Google para em 95% da cota grátis do mês. Ligado: segue até o teto de gasto (US$ 30 por milhão de caracteres)."
+          />
         </SettingForm>
 
         <SettingForm

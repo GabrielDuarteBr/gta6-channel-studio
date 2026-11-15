@@ -1,7 +1,7 @@
 <# : Fase 2 do Radar Neon no Windows (arquivo hibrido: .bat + PowerShell)
 @echo off
 setlocal
-title Radar Neon - Fase 2 (personagem)
+title Radar Neon - Fase 2 (personagem e voz)
 rem Copia para uma pasta local (funciona mesmo aberto de \\wsl.localhost ou de Downloads)
 set "SRC=%~f0"
 set "WORK=%TEMP%\radar-neon-fase-2"
@@ -18,15 +18,15 @@ exit /b
 #>
 
 # =============================================================================
-#  Radar Neon — Fase 2 (personagem Zeca Neon) no seu PC
+#  Radar Neon — Fase 2 (personagem Zeca Neon e a voz do Google) no seu PC
 #  1. confere Ubuntu, projeto e Docker Desktop (liga o Docker se estiver fechado)
 #  2. atualiza o projeto para a branch da Fase 2
-#  3. roda o aceite da Fase 2 (make accept-2): clipe do Zeca 2x com quadros idênticos,
-#     Short 9:16 e todos os testes
-#  4. põe na Área de Trabalho o resultado e o vídeo do Zeca falando
-#  5. abre a tela Personagem no navegador
+#  3. pede a chave da voz do Google (escondida), testa e grava no .env
+#  4. gera amostras das vozes e um clipe do Zeca com a voz do Google (Área de Trabalho)
+#  5. roda o aceite da Fase 2 (make accept-2) e salva o resultado na Área de Trabalho
+#  6. abre a tela Personagem no navegador
 #  Pré-requisito: o instalar-radar-neon.bat já ter rodado uma vez (Fase 0).
-#  Nenhuma chave nova nesta fase (a voz é de teste; a real entra depois da sua escolha).
+#  A chave nunca aparece na tela, no log nem na linha de comando.
 # =============================================================================
 
 $ErrorActionPreference = 'Continue'
@@ -39,6 +39,8 @@ $PreferredDistro = 'Ubuntu-24.04'
 $ProjectRel = 'projetos/gta6-channel-studio'
 $ReportName = 'radar-neon-aceite-fase-2.txt'
 $VideoName = 'radar-neon-zeca-teste.mp4'
+$GoogleVideoName = 'radar-neon-zeca-voz-google.mp4'
+$VoicesFolder = 'radar-neon-vozes'
 
 $Work = Join-Path $env:LOCALAPPDATA 'radar-neon-fase-2'
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
@@ -50,7 +52,7 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $DockerDesktopExe = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
 $DockerCli = Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin\docker.exe'
 
-$TotalSteps = 5
+$TotalSteps = 7
 $script:StepNo = 0
 $script:Distro = $null
 
@@ -126,6 +128,19 @@ function Get-LinuxScriptOutput([string]$Name, [string]$Content, [hashtable]$Valu
   $wslPath = Save-LinuxScript $Name $Content $Values
   return Remove-Nul (& wsl.exe -d $script:Distro --exec bash $wslPath 2>$null)
 }
+# Igual ao anterior, mas manda um segredo pela ENTRADA PADRÃO (nunca na linha de comando).
+function Get-LinuxScriptOutputWithSecret([string]$Name, [string]$Content, [hashtable]$Values, [string]$Secret) {
+  $wslPath = Save-LinuxScript $Name $Content $Values
+  return Remove-Nul ($Secret | & wsl.exe -d $script:Distro --exec bash $wslPath 2>$null)
+}
+# Lê um texto sem mostrar na tela (aparece * no lugar). Colar: botão direito ou Ctrl+V.
+function Read-Secret([string]$Prompt) {
+  $secure = Read-Host "  $Prompt" -AsSecureString
+  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
 # ----------------------------------------------------------------- Docker Desktop
 function Get-DockerDesktopCandidates {
   $dirs = New-Object System.Collections.Generic.List[string]
@@ -252,6 +267,96 @@ if [ ! -f .env ]; then
 fi
 '@
 
+# Só diz se cada chave está preenchida; o valor nunca é impresso.
+$LinuxKeyStatus = @'
+#!/usr/bin/env bash
+cd "$HOME/"@@PROJECT@@ || exit 1
+if [ ! -f .env ]; then echo SEM_ENV; exit 0; fi
+for n in GOOGLE_TTS_API_KEY; do
+  v=$(grep -E "^$n=" .env | tail -1 | cut -d= -f2- | tr -d '\r[:space:]')
+  if [ -n "$v" ]; then echo "$n=definida"; else echo "$n=vazia"; fi
+done
+'@
+
+# Testa uma chave lida da entrada padrão e imprime só o resultado (ok, invalida...).
+# Google TTS: lista de vozes pt-BR (não gasta caracteres da cota).
+$LinuxKeyCheck = @'
+#!/usr/bin/env bash
+IFS= read -r key || true
+key=$(printf '%s' "$key" | tr -d '\r')
+case "$key" in ''|*[!A-Za-z0-9_-]*) echo invalida; exit 0 ;; esac
+body=$(mktemp)
+trap 'rm -f "$body"' EXIT
+# A chave vai para o curl pela entrada padrão (-K -), nunca como argumento.
+code=$(printf 'url = "https://texttospeech.googleapis.com/v1/voices?languageCode=pt-BR"\nheader = "x-goog-api-key: %s"\n' "$key" |
+  curl -sS -m 20 -o "$body" -w '%{http_code}' -K - 2>/dev/null) || code=000
+reason=$(python3 -c '
+import json, sys
+try:
+    err = json.load(open(sys.argv[1])).get("error") or {}
+except Exception:
+    sys.exit(0)
+reason = ""
+if isinstance(err, dict):
+    errors = err.get("errors") or []
+    if errors and isinstance(errors[0], dict):
+        reason = errors[0].get("reason", "")
+    for detail in err.get("details") or []:
+        if not reason and isinstance(detail, dict):
+            reason = detail.get("reason", "")
+    reason = reason or err.get("status", "") or err.get("type", "")
+print(reason)
+' "$body" 2>/dev/null)
+case "$code" in
+  200) echo ok ;;
+  000) echo sem-rede ;;
+  401) echo invalida ;;
+  429) echo cota ;;
+  400|403)
+    case "$reason" in
+      *keyInvalid*|*API_KEY_INVALID*|*badRequest*|*authentication_error*) echo invalida ;;
+      *accessNotConfigured*|*SERVICE_DISABLED*) echo api-desativada ;;
+      *BILLING*) echo faturamento ;;
+      *quotaExceeded*|*dailyLimitExceeded*|*RATE_LIMIT*) echo cota ;;
+      *) echo "restrita ${reason:-HTTP $code}" ;;
+    esac ;;
+  *) echo "erro HTTP $code${reason:+ ($reason)}" ;;
+esac
+'@
+
+# Grava NOME=valor no .env. O valor chega pela entrada padrão e nunca é impresso.
+$LinuxSetKey = @'
+#!/usr/bin/env bash
+set -uo pipefail
+cd "$HOME/"@@PROJECT@@ || { echo sem-projeto; exit 0; }
+name=@@NAME@@
+IFS= read -r value || true
+value=$(printf '%s' "$value" | tr -d '\r')
+case "$value" in ''|*[!A-Za-z0-9_-]*) echo invalida; exit 0 ;; esac
+if [ ! -f .env ]; then echo sem-env; exit 0; fi
+printf '%s' "$value" | python3 -c '
+import os, sys
+name, value = sys.argv[1], sys.stdin.read()
+with open(".env", encoding="utf-8") as f:
+    lines = f.read().splitlines()
+out, done = [], False
+for line in lines:
+    if line.startswith(name + "="):
+        if not done:
+            out.append(name + "=" + value)
+            done = True
+        continue
+    out.append(line)
+if not done:
+    out.append(name + "=" + value)
+tmp = ".env.tmp-radar-neon"
+with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+    f.write("\n".join(out) + "\n")
+os.chmod(tmp, 0o600)
+os.replace(tmp, ".env")
+' "$name" && echo ok || echo erro
+'@
+
 $LinuxAccept = @'
 #!/usr/bin/env bash
 set -o pipefail
@@ -265,6 +370,37 @@ for f in "$report" "$video"; do
   if [ -f "$f" ] && cp "$f" "$desk/" 2>/dev/null; then echo "  Copiado para a Área de Trabalho: $f"; fi
 done
 exit "$code"
+'@
+
+# Amostras das vozes Chirp 3 HD (masculinas) + clipe do Zeca com a voz do Google.
+$LinuxGoogleVoice = @'
+#!/usr/bin/env bash
+set -uo pipefail
+cd "$HOME/"@@PROJECT@@ || exit 1
+desk=@@DESKDIR@@
+folder=@@FOLDER@@
+gvideo=@@GVIDEO@@
+COMPOSE="docker compose -f infra/docker-compose.yml --env-file .env"
+echo "  Subindo o estúdio com a versão nova (a primeira vez reconstrói as imagens)..."
+make up || exit 2
+echo
+echo "  Amostras das vozes masculinas do Google (cada uma ~100 caracteres da cota grátis)..."
+if make vozes; then
+  mkdir -p "$desk/$folder"
+  $COMPOSE cp worker-media:/data/work/vozes/. "$desk/$folder/" >/dev/null 2>&1 && echo "  [OK] amostras em: $folder (Área de Trabalho)"
+else
+  echo "  [!] não consegui gerar as amostras (veja a mensagem acima)"
+fi
+echo
+echo "  Clipe do Zeca com a voz do Google..."
+out=$(make zeca VOZ=google 2>&1)
+echo "$out" | tail -4
+video=$(echo "$out" | grep -E '^\{"resumo"' | tail -1 | python3 -c 'import json,sys; print(json.load(sys.stdin).get("resumo",{}).get("video",""))' 2>/dev/null)
+if [ -n "$video" ] && $COMPOSE cp "render:/data/work/$video" "$desk/$gvideo" >/dev/null 2>&1; then
+  echo "  [OK] vídeo na Área de Trabalho: $gvideo"
+else
+  echo "  [!] o clipe com a voz do Google não saiu (veja a mensagem acima)"
+fi
 '@
 
 $LinuxOwnerCount = @'
@@ -281,11 +417,51 @@ cd "$HOME/"@@PROJECT@@ || exit 1
 make owner
 '@
 
+# Pede uma chave, confere o formato, testa na API e grava no .env.
+function Set-ApiKey {
+  param([string]$Name, [string]$Label, [string]$Pattern, [string]$Prefix)
+  for ($try = 1; $try -le 3; $try++) {
+    $value = Read-Secret "Cole a $Label e aperte Enter (só Enter = pular)"
+    if ($null -eq $value) { $value = '' }
+    $value = $value.Trim()
+    if ($value -eq '') { Write-Info 'pulado'; return $false }
+    if ($value -notmatch $Pattern) {
+      $value = $null
+      Write-Attention "Isso não parece uma $Label (ela começa com $Prefix). Confira se copiou inteira."
+      continue
+    }
+    Write-Info 'Testando a chave...'
+    $result = [string](Get-LinuxScriptOutputWithSecret 'testar-chave.sh' $LinuxKeyCheck @{} $value | Select-Object -Last 1)
+    $save = $false
+    switch -Wildcard ($result) {
+      'ok' { Write-Ok 'chave aceita'; $save = $true }
+      'cota' { Write-Ok 'chave aceita (a cota de hoje está no limite; ela volta amanhã)'; $save = $true }
+      'sem-rede' { Write-Attention 'Não consegui testar agora (internet?). Vou gravar assim mesmo.'; $save = $true }
+      'invalida' { Write-Attention 'A chave foi recusada: ela não existe ou foi copiada pela metade.' }
+      'api-desativada' { Write-Attention 'A chave existe, mas a Cloud Text-to-Speech API não está ATIVADA no projeto (guia, seção 10.1, passo 3).' }
+      'faturamento' { Write-Attention 'O faturamento do projeto não está ativado (guia, seção 10.1, passo 2). A cota grátis só vale com cartão cadastrado.' }
+      'restrita*' { Write-Attention "A chave foi recusada por uma restrição ($result). Ela precisa liberar a Cloud Text-to-Speech API (guia, seção 10.1, passo 4)." }
+      default { Write-Attention "Resposta inesperada ao testar: $result. Vou gravar assim mesmo; o aceite mostra se funcionou."; $save = $true }
+    }
+    if (-not $save) {
+      $value = $null
+      if (-not (Read-YesNo 'Tentar outra chave?' $true)) { return $false }
+      continue
+    }
+    $saved = [string](Get-LinuxScriptOutputWithSecret 'gravar-chave.sh' $LinuxSetKey @{ PROJECT = $ProjectRel; NAME = $Name } $value | Select-Object -Last 1)
+    $value = $null
+    if ($saved -eq 'ok') { Write-Ok "$Name gravada no .env (só no seu computador)"; return $true }
+    Write-Attention "Não consegui gravar a chave no .env ($saved)."
+    return $false
+  }
+  return $false
+}
+
 # =============================================================================
 Clear-Host
 Write-Host ''
-Write-Host '  RADAR NEON — Fase 2: o personagem Zeca Neon' -ForegroundColor Magenta
-Write-Host '  Atualiza o projeto, roda o aceite (clipe do Zeca) e abre a tela Personagem.'
+Write-Host '  RADAR NEON — Fase 2: o personagem Zeca Neon e a voz do Google' -ForegroundColor Magenta
+Write-Host '  Atualiza o projeto, configura a voz, gera amostras, roda o aceite e abre a tela Personagem.'
 Write-Host "  Log: $LogFile"
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -338,11 +514,56 @@ if ($code -ne 0) {
   Stop-Run 'Não consegui atualizar o projeto (veja a mensagem acima). Se o GitHub pediu login e falhou, rode de novo.'
 }
 
-# ----------------------------------------------------------------- 4. Aceite da Fase 2
+# ----------------------------------------------------------------- 4. Chave da voz do Google
+Write-Step 'Voz do Zeca: chave do Google Cloud Text-to-Speech (fica só no .env)'
+# A chave não vai para o log: a gravação do log pausa durante este passo.
+try { Stop-Transcript | Out-Null } catch { }
+$status = Get-LinuxScriptOutput 'status-chaves.sh' $LinuxKeyStatus @{ PROJECT = $ProjectRel }
+if ($status -contains 'SEM_ENV') { Stop-Run 'O .env não existe. Rode o instalar-radar-neon.bat.' }
+$googleSet = $status -contains 'GOOGLE_TTS_API_KEY=definida'
+$googlePattern = '^AIza[0-9A-Za-z_-]{35}$'
+if ($googleSet) {
+  Write-Ok 'GOOGLE_TTS_API_KEY já está no .env'
+  if (Read-YesNo 'Trocar por outra chave?' $false) {
+    $null = Set-ApiKey -Name 'GOOGLE_TTS_API_KEY' -Label 'chave do Google (Text-to-Speech)' -Pattern $googlePattern -Prefix 'AIza'
+  }
+} else {
+  Write-Info 'No mesmo projeto do Google Cloud da chave do YouTube (guia: docs/notebook-setup.md, seção 10.1):'
+  Write-Info '  1. Faturamento: vincule um cartão (a cota grátis de 1 milhão de caracteres/mês só vale assim).'
+  Write-Info '  2. Ative a "Cloud Text-to-Speech API".'
+  Write-Info '  3. Crie uma chave de API e restrinja à "Cloud Text-to-Speech API".'
+  Write-Info '  4. Recomendado: crie um orçamento com alerta (ex.: R$ 5) em Faturamento > Orçamentos.'
+  Write-Info 'O estúdio também trava sozinho em 95% da cota grátis do mês.'
+  if (Read-YesNo 'Abrir a página da Cloud Text-to-Speech API no navegador agora?' $true) {
+    Start-Process 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com'
+  }
+  $googleSet = Set-ApiKey -Name 'GOOGLE_TTS_API_KEY' -Label 'chave do Google (Text-to-Speech)' -Pattern $googlePattern -Prefix 'AIza'
+}
+try { Start-Transcript -Path $LogFile -Append | Out-Null } catch { }
+if (-not $googleSet) {
+  Write-Attention 'Sem a chave, a fase segue com a voz de teste (robótica). Dá para rodar este arquivo de novo depois.'
+}
+
+# ----------------------------------------------------------------- 5. Vozes do Google
+Write-Step 'Amostras das vozes e um clipe com a voz do Google'
+if ($googleSet) {
+  $voiceValues = @{ PROJECT = $ProjectRel; DESKDIR = (ConvertTo-WslPath $Desktop); FOLDER = $VoicesFolder; GVIDEO = $GoogleVideoName }
+  $null = Invoke-LinuxScript -Name 'voz-google.sh' -Content $LinuxGoogleVoice -Values $voiceValues
+  $voicesPath = Join-Path $Desktop $VoicesFolder
+  if (Test-Path -LiteralPath $voicesPath) {
+    Write-Ok "Ouça as amostras em: $voicesPath"
+    Write-Info 'Para trocar a voz: painel > Configurações > Voz do Zeca (ex.: pt-BR-Chirp3-HD-Charon).'
+  }
+  $gPath = Join-Path $Desktop $GoogleVideoName
+  if (Test-Path -LiteralPath $gPath) { Write-Ok "Zeca com a voz do Google: $gPath" }
+} else {
+  Write-Info 'Pulado (sem chave do Google).'
+}
+
+# ----------------------------------------------------------------- 6. Aceite da Fase 2
 Write-Step 'Aceite da Fase 2 (make accept-2)'
-Write-Info 'Sobe o estúdio com a versão nova (a primeira vez reconstrói as imagens, com o Rhubarb e a'
-Write-Info 'voz de teste), gera o clipe do Zeca duas vezes e compara quadro a quadro, gera um Short'
-Write-Info 'e roda todos os testes. Leva de 20 a 40 minutos. Pode usar o PC enquanto isso.'
+Write-Info 'Gera o clipe do Zeca duas vezes e compara quadro a quadro, gera um Short e roda todos os'
+Write-Info 'testes (o aceite usa a voz de teste, para o resultado ser sempre igual). Leva de 20 a 40 min.'
 $acceptValues = @{ PROJECT = $ProjectRel; DESKDIR = (ConvertTo-WslPath $Desktop); REPORT = $ReportName; VIDEO = $VideoName }
 $acceptCode = Invoke-LinuxScript -Name 'aceite.sh' -Content $LinuxAccept -Values $acceptValues
 Write-Host ''
@@ -351,10 +572,8 @@ else { Write-Attention 'algum critério do aceite falhou (veja o resultado por c
 $reportPath = Join-Path $Desktop $ReportName
 if (Test-Path -LiteralPath $reportPath) { Write-Info "Resultado: $reportPath  -> mande esse arquivo para o Claude." }
 else { Write-Attention "Não achei o resultado na Área de Trabalho. Ele fica também em ~/$ProjectRel/$ReportName no Ubuntu." }
-$videoPath = Join-Path $Desktop $VideoName
-if (Test-Path -LiteralPath $videoPath) { Write-Ok "Vídeo do Zeca falando: $videoPath (abra para ver a boca sincronizada)" }
 
-# ----------------------------------------------------------------- 5. Painel
+# ----------------------------------------------------------------- 7. Painel
 Write-Step 'Painel'
 $owners = Get-LinuxScriptOutput 'contar-dono.sh' $LinuxOwnerCount @{ PROJECT = $ProjectRel }
 $ownerCount = 0
@@ -367,7 +586,7 @@ if ($ownerCount -eq 0) {
 }
 Start-Process 'http://localhost:3000/personagem'
 Write-Ok 'Tela Personagem aberta no navegador: http://localhost:3000/personagem'
-Write-Info 'Ali dá para gerar novos clipes de teste e editar a bíblia do Zeca.'
+Write-Info 'Ali dá para gerar clipes (voz de teste ou Google) e ver o uso da cota grátis do mês.'
 Write-Host ''
 Write-Info "Log desta execução: $LogFile"
 try { Stop-Transcript | Out-Null } catch { }

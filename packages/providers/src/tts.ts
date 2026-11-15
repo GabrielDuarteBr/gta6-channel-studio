@@ -15,8 +15,11 @@ export interface TtsResult {
   path: string;
   durationSec: number;
   chars: number;
+  /** Preço de tabela destes caracteres (o agents desconta a cota grátis ao registrar). */
   costUsd: number;
   provider: string;
+  /** Veio do cache (não gastou nada). */
+  cached?: boolean;
 }
 
 export interface TtsProvider {
@@ -29,9 +32,22 @@ export interface TtsProvider {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * Falha de provedor. `retryable` = vale tentar de novo (limite momentâneo, servidor fora); o
+ * resto (sem chave, chave inválida, API desligada, sem cota) falha de vez, sem gastar retentativa.
+ */
 export class ProviderError extends Error {
   override name = 'ProviderError';
+  constructor(
+    message: string,
+    readonly retryable = false,
+  ) {
+    super(message);
+  }
 }
+
+/** Limite momentâneo ou servidor fora do ar: tentar de novo pode dar certo. */
+export const isTransientStatus = (status: number): boolean => status === 429 || status >= 500;
 
 const espeakResponse = z.object({ path: z.string(), duration_sec: z.number() });
 
@@ -57,7 +73,7 @@ export class FakeTts implements TtsProvider {
     const body: unknown = await res.json().catch(() => ({}));
     if (!res.ok) {
       const detail = (body as { error?: string }).error ?? `HTTP ${res.status}`;
-      throw new ProviderError(`voz de teste falhou: ${detail}`);
+      throw new ProviderError(`voz de teste falhou: ${detail}`, isTransientStatus(res.status));
     }
     const data = espeakResponse.parse(body);
     return {
@@ -70,15 +86,5 @@ export class FakeTts implements TtsProvider {
   }
 }
 
-export const TTS_PROVIDERS = ['fake'] as const;
+export const TTS_PROVIDERS = ['fake', 'google'] as const;
 export type TtsProviderId = (typeof TTS_PROVIDERS)[number];
-
-export function createTtsProvider(
-  id: TtsProviderId,
-  opts: { mediaUrl: string; fetchImpl?: FetchLike },
-): TtsProvider {
-  switch (id) {
-    case 'fake':
-      return new FakeTts(opts.mediaUrl, opts.fetchImpl);
-  }
-}

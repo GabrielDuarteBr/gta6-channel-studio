@@ -18,6 +18,7 @@ services:
       RESEARCH_SCHEDULE: 'off'
       YOUTUBE_API_KEY: ''
       ANTHROPIC_API_KEY: ''
+      GOOGLE_TTS_API_KEY: ''
 
   # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
   tests:

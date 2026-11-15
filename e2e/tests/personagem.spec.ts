@@ -3,12 +3,20 @@ import { expect, test } from '@playwright/test';
 /** Tela Personagem (Fase 2). O clipe é gerado de verdade na pilha de testes. */
 test.describe.configure({ mode: 'serial' });
 
+/**
+ * O mesmo roteiro no mesmo minuto vira o mesmo job (proteção contra clique duplo). Numa nova
+ * tentativa do Playwright, o texto muda para gerar um clipe novo de verdade.
+ */
+const attempt = () => (test.info().retry ? ` Tentativa ${test.info().retry + 1}.` : '');
+
 test('personagem: galeria com 6 expressões, 9 bocas e voz de teste', async ({ page }) => {
   await page.goto('/personagem');
   await expect(page.getByRole('heading', { name: 'Personagem', exact: true })).toBeVisible();
   await expect(page.getByTestId('galeria-expressoes').locator('svg')).toHaveCount(6);
   await expect(page.getByTestId('galeria-bocas').locator('svg')).toHaveCount(9);
-  await expect(page.getByTestId('voz-atual')).toContainText('Voz de teste');
+  await expect(page.getByTestId('voz-atual')).toContainText('Google Chirp 3 HD');
+  await expect(page.getByTestId('voz-atual')).toContainText('Modo simulado ligado');
+  await expect(page.getByTestId('cota-voz')).toContainText('/ 1.000.000');
   await expect(page.getByText('Arte provisória').first()).toBeVisible();
 });
 
@@ -34,7 +42,7 @@ test('clipe: gera de verdade (voz, bocas, render) e o vídeo toca no painel', as
   await form
     .getByLabel('O que o Zeca fala')
     .fill(
-      '[feliz] Fala, galera do Radar! [surpreso] [aponta_tela] Novidade! [serio] Calma, é rumor.',
+      `[feliz] Fala, galera do Radar! [surpreso] [aponta_tela] Novidade! [serio] Calma, é rumor.${attempt()}`,
     );
   await form.getByRole('button', { name: 'Gerar clipe de teste' }).click();
   await expect(form.getByRole('status')).toContainText('Clipe na fila');
@@ -52,6 +60,39 @@ test('clipe: gera de verdade (voz, bocas, render) e o vídeo toca no painel', as
   expect(res.status()).toBe(206);
   expect(res.headers()['content-type']).toBe('video/mp4');
   expect(res.headers()['content-range']).toMatch(/^bytes 0-1023\//);
+});
+
+test('clipe com a voz do Google sem chave: falha com a mensagem do que configurar', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto('/personagem');
+  const form = page.getByTestId('form-clipe');
+  await form.getByLabel('O que o Zeca fala').fill(`[feliz] Teste da voz do Google.${attempt()}`);
+  await form.getByLabel('Voz').selectOption('google');
+  await form.getByRole('button', { name: 'Gerar clipe de teste' }).click();
+  await expect(form.getByRole('status')).toContainText('Clipe na fila');
+  const first = page.getByTestId('clipe').first();
+  await expect(async () => {
+    await page.reload();
+    await expect(first.getByTestId('status-clipe')).toHaveText('falhou', { timeout: 1_000 });
+  }).toPass({ timeout: 100_000, intervals: [3_000] });
+  await expect(first).toContainText('GOOGLE_TTS_API_KEY');
+});
+
+test('configurações: voz do Zeca salva (com auditoria)', async ({ page }) => {
+  await page.goto('/configuracoes');
+  const form = page.getByTestId('form-character');
+  await expect(form.getByLabel('Voz do Google', { exact: true })).toHaveValue(
+    'pt-BR-Chirp3-HD-Puck',
+  );
+  await form.getByLabel('Velocidade (0,75 a 1,5)').fill('1.1');
+  await form.getByRole('button', { name: 'Salvar' }).click();
+  await expect(form.getByRole('status')).toContainText('Salvo');
+  await page.reload();
+  await expect(
+    page.getByTestId('form-character').getByLabel('Velocidade (0,75 a 1,5)'),
+  ).toHaveValue('1.1');
 });
 
 test('mídia: sem login não entrega e caminho estranho é recusado', async ({ browser, request }) => {

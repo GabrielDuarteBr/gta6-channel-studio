@@ -10,7 +10,10 @@ description: Como o personagem Zeca Neon é animado (marcações do roteiro, voz
    texto em trechos; expressão vale até a próxima; gesto começa no trecho; `[pausa:ms]` 100–3000.
 2. Regra 7: `assertCharacterLine` (`packages/policy/src/character.ts`) — o Zeca nunca diz que é
    humano nem nega ser IA. Sempre antes de gastar voz.
-3. Voz por trecho: `TtsProvider` (`packages/providers`). Hoje só `fake` (espeak-ng no worker-media).
+3. Voz por trecho: `TtsProvider` (`packages/providers`): `google` (Chirp 3 HD, com `CachedTts`) ou
+   `fake` (espeak-ng). Escolha em `apps/agents/src/character/tts.ts` (`ttsForClip`: modo simulado =
+   voz de teste, salvo pedido no clipe), com trava da cota grátis e do teto; `recordTts` grava
+   caracteres e custo real no `CostLedger`.
 4. Trilha: worker-media `/audio/voice-track` junta os trechos com as pausas e devolve início/fim de
    cada um. Bocas: `/lipsync` (Rhubarb `-r phonetic --threads 1`, formas A–H e X).
 5. `buildTimeline` + `frameState` (puros): expressão, boca, piscada (semente), gesto e respiração
@@ -35,10 +38,13 @@ description: Como o personagem Zeca Neon é animado (marcações do roteiro, voz
 - **Motor Rive**: veja `docs/fase-2-rive-poc.md`; o componente oficial `<RemotionRiveCanvas>` não
   serve (só animação linear e WASM do unpkg). Use o padrão de `RivePoc.tsx` (runtime local, avaliação
   por quadro sem estado).
-- **Provedor de voz real**: implemente `TtsProvider` em `packages/providers` (custo por caractere,
-  `real: true`), adicione o id em `TTS_PROVIDERS` e em `settings.character.ttsProvider`, registre o
-  custo (o job já grava no `CostLedger`) e respeite o teto (`assertWithinBudget`). Consulte a
-  documentação atual do provedor antes (nomes de campos e preços mudam). Chave só no `.env`.
+- **Outro provedor de voz**: implemente `TtsProvider` em `packages/providers` (custo por caractere,
+  `real: true`, `cacheKey` para o `CachedTts`), adicione o id em `TTS_PROVIDERS`, em
+  `settings.character.ttsProvider` e no `createTtsProvider`, e uma trava como a do Google em
+  `ttsForClip`. Consulte a documentação atual do provedor antes (campos e preços mudam; o documento
+  de descoberta `$discovery/rest` do Google é a fonte oficial alcançável). Chave só no `.env`.
+- **Trocar a voz do Google**: Configurações → Voz do Zeca. Mudou voz ou velocidade, muda a chave do
+  cache (gera de novo, uma vez).
 
 ## Testar
 - `pnpm --filter @studio/avatar test` (marcações, linha do tempo, arte determinística).

@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 
 from app.media_tools import (
     MediaToolError,
+    audio_info,
     ffmpeg_version,
+    import_wav,
     lipsync,
     tool_versions,
     tts_espeak,
@@ -105,3 +107,18 @@ class VideoIn(BaseModel):
 @app.post("/video/frame-hashes")
 def frame_hashes_route(body: VideoIn) -> dict:
     return video_frame_hashes(body.video)
+
+
+class ImportIn(BaseModel):
+    out: str = RelPath
+    data_b64: str = Field(min_length=60, max_length=42_000_000)
+
+
+@app.post("/audio/import")
+def import_route(body: ImportIn) -> dict:
+    return import_wav(body.out, body.data_b64)
+
+
+@app.post("/audio/info")
+def info_route(body: AudioIn) -> dict:
+    return audio_info(body.audio)

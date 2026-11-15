@@ -17,12 +17,17 @@ export interface ActionState {
 const clipSchema = z.object({
   script: z.string().trim().min(2, 'Escreva o que o Zeca vai falar.').max(6000),
   layout: z.enum(['landscape', 'vertical']),
+  tts: z.enum(['fake', 'google']),
 });
 
 /** Valida o roteiro aqui (marcações e regra 7) e manda o clipe para a fila. */
 export async function generateClipAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   await requireOwner();
-  const parsed = clipSchema.safeParse({ script: form.get('script'), layout: form.get('layout') });
+  const parsed = clipSchema.safeParse({
+    script: form.get('script'),
+    layout: form.get('layout'),
+    tts: form.get('tts') ?? 'fake',
+  });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Roteiro inválido.' };
   try {
     const script = parseScript(parsed.data.script);
@@ -46,12 +51,12 @@ export async function generateClipAction(_prev: ActionState, form: FormData): Pr
   await audit(getPrisma(), {
     actor: 'owner',
     action: 'character.clip.enqueue',
-    details: { layout: parsed.data.layout, chars: parsed.data.script.length },
+    details: { layout: parsed.data.layout, tts: parsed.data.tts, chars: parsed.data.script.length },
   });
   revalidatePath('/personagem');
   return {
     ok: true,
-    message: 'Clipe na fila. A voz de teste e o render levam de 1 a 3 minutos; atualize a página.',
+    message: 'Clipe na fila. Voz e render levam de 1 a 3 minutos; atualize a página.',
   };
 }
 

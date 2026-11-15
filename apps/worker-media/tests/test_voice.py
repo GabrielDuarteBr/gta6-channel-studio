@@ -150,3 +150,49 @@ def test_hash_de_quadros_igual_para_o_mesmo_video(work_root: Path):
     b = client.post("/video/frame-hashes", json={"video": "v.mp4"}).json()
     assert a["frames"] == 10
     assert a == b
+
+
+def wav_bytes(seconds: float = 0.5, rate: int = 24000) -> bytes:
+    import io
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(b"\x01\x00" * int(seconds * rate))
+    return buf.getvalue()
+
+
+def test_importa_wav_da_voz_real_e_informa_duracao(work_root: Path):
+    import base64
+
+    client = TestClient(app)
+    data = base64.b64encode(wav_bytes(0.5)).decode()
+    res = client.post("/audio/import", json={"out": "tts-cache/google/abc.wav", "data_b64": data})
+    assert res.status_code == 200, res.text
+    assert res.json() == {"path": "tts-cache/google/abc.wav", "duration_sec": 0.5}
+    info = client.post("/audio/info", json={"audio": "tts-cache/google/abc.wav"}).json()
+    assert info == {"exists": True, "path": "tts-cache/google/abc.wav", "duration_sec": 0.5}
+    assert client.post("/audio/info", json={"audio": "tts-cache/nada.wav"}).json() == {
+        "exists": False
+    }
+    assert not list(work_root.rglob("*.tmp.wav"))
+
+
+def test_importacao_recusa_o_que_nao_e_wav_pcm():
+    import base64
+
+    client = TestClient(app)
+    mp3ish = base64.b64encode(b"ID3" + b"\x00" * 100).decode()
+    assert (
+        "não é um arquivo WAV"
+        in client.post("/audio/import", json={"out": "a.wav", "data_b64": mp3ish}).json()["error"]
+    )
+    lixo = "!!!" + "a" * 100
+    assert client.post("/audio/import", json={"out": "a.wav", "data_b64": lixo}).status_code == 400
+    ok = base64.b64encode(wav_bytes()).decode()
+    assert (
+        client.post("/audio/import", json={"out": "/etc/a.wav", "data_b64": ok}).status_code == 422
+    )
+    assert client.post("/audio/import", json={"out": "a.mp3", "data_b64": ok}).status_code == 400

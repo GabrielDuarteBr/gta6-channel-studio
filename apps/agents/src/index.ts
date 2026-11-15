@@ -73,7 +73,13 @@ async function main(): Promise<void> {
   const bibleSeeded = await ensureBible(prisma);
   if (bibleSeeded) log.info({ version: bibleSeeded }, 'bíblia do personagem criada');
   const renderQueue = createQueue('render', connection);
-  const clipCtx = { prisma, log, mediaUrl: env.MEDIA_URL, renderUrl: env.RENDER_URL };
+  const clipCtx = {
+    prisma,
+    log,
+    mediaUrl: env.MEDIA_URL,
+    renderUrl: env.RENDER_URL,
+    googleApiKey: process.env.GOOGLE_TTS_API_KEY || undefined,
+  };
 
   const workers: Worker[] = [
     // Uma coleta por vez (agendada, manual ou de recuperação).

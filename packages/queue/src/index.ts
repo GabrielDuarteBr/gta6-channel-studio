@@ -90,7 +90,9 @@ export function createWorker<T = unknown, R = unknown>(
       return result;
     } catch (err) {
       const attempts = job.opts.attempts ?? 1;
-      await recorder?.failed(job, err as Error, job.attemptsMade + 1 < attempts);
+      // UnrecoverableError: o BullMQ não tenta de novo, então o registro já fica como falha.
+      const willRetry = !(err instanceof UnrecoverableError) && job.attemptsMade + 1 < attempts;
+      await recorder?.failed(job, err as Error, willRetry);
       throw err;
     }
   };

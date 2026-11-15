@@ -48,13 +48,28 @@ export const SETTINGS = {
     })
     .default({ intervalMinutes: 30, windowHours: 72, youtubeSearchesPerDay: 4 }),
 
-  /** Personagem (Fase 2). Provedor de voz real entra quando o dono escolher. */
+  /**
+   * Personagem (Fase 2). Voz: 'fake' (espeak, teste) ou 'google' (Chirp 3 HD). Com o modo
+   * simulado ligado, os clipes usam a voz de teste (salvo pedido explícito no clipe).
+   * A trava para em 95% da cota grátis do mês, a não ser que o dono libere pagar.
+   */
   character: z
     .object({
-      ttsProvider: z.enum(['fake']),
+      ttsProvider: z.enum(['fake', 'google']),
+      googleVoice: z.string().regex(/^[a-z]{2,3}-[A-Z]{2}-Chirp3-HD-[A-Za-z]+$/),
+      speakingRate: z.number().min(0.75).max(1.5),
+      freeCharsPerMonth: z.number().int().min(0).max(10_000_000),
+      allowPaid: z.boolean(),
       layout: z.enum(['landscape', 'vertical']),
     })
-    .default({ ttsProvider: 'fake', layout: 'landscape' }),
+    .default({
+      ttsProvider: 'google',
+      googleVoice: 'pt-BR-Chirp3-HD-Puck',
+      speakingRate: 1.05,
+      freeCharsPerMonth: 1_000_000,
+      allowPaid: false,
+      layout: 'landscape',
+    }),
 
   antiSpoiler: z
     .object({

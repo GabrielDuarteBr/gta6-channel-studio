@@ -41,6 +41,15 @@ function valueFor(key: SettingKey, form: FormData): unknown {
         windowHours: num(form, 'windowHours'),
         youtubeSearchesPerDay: num(form, 'youtubeSearchesPerDay'),
       };
+    case 'character':
+      return {
+        ttsProvider: String(form.get('ttsProvider') ?? 'fake'),
+        googleVoice: String(form.get('googleVoice') ?? '').trim(),
+        speakingRate: num(form, 'speakingRate'),
+        freeCharsPerMonth: num(form, 'freeCharsPerMonth'),
+        allowPaid: form.get('allowPaid') === 'on',
+        layout: String(form.get('layout') ?? 'landscape'),
+      };
     case 'channel.identity':
       return {
         channelName: String(form.get('channelName') ?? '').trim(),

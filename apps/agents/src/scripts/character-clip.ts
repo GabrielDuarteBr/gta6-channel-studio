@@ -1,7 +1,7 @@
 /**
  * Clipe de teste do Zeca pela fila (igual ao botão do painel), esperando terminar.
  *   docker compose exec agents node_modules/.bin/tsx src/scripts/character-clip.ts [--vertical] [--duas-vezes]
- *   (texto próprio: variável ROTEIRO)
+ *   (texto próprio: variável ROTEIRO; voz do Google mesmo no modo simulado: --voz google)
  * --duas-vezes renderiza o mesmo clipe duas vezes e compara o hash de cada quadro.
  * A última linha é um JSON {"resumo": {...}} lido pelo scripts/accept-2.sh.
  */
@@ -23,6 +23,8 @@ const prisma = getPrisma();
 const queue = createQueue('render', redisConnection(env.REDIS_URL));
 const vertical = process.argv.includes('--vertical');
 const twice = process.argv.includes('--duas-vezes');
+const vozIndex = process.argv.indexOf('--voz');
+const voz = vozIndex > 0 ? process.argv[vozIndex + 1] : undefined;
 
 async function runOnce(data: ClipJobData): Promise<ClipResult> {
   const jobId = clipJobId(data);
@@ -45,6 +47,7 @@ try {
   const base = clipJobSchema.parse({
     script: process.env.ROTEIRO || DEMO_SCRIPT,
     layout: vertical ? 'vertical' : 'landscape',
+    ...(voz ? { tts: voz } : {}),
   });
   const first = await runOnce({ ...base, ...(twice ? { variant: 'a' } : {}) });
   console.log(

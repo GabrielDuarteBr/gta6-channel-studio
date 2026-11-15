@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { getPrisma } from '@studio/db';
 import { createQueue, deterministicJobId, redisConnection } from '@studio/queue';
-import { parseEnv, redisEnvSchema } from '@studio/shared';
+import { channelMonth, parseEnv, redisEnvSchema } from '@studio/shared';
 
 /** Mesmo nome e mesma regra de id do job no agents (apps/agents/src/character). */
 export const CLIP_JOB = 'character.clip';
@@ -9,6 +9,21 @@ export const CLIP_JOB = 'character.clip';
 export interface ClipRequest {
   script: string;
   layout: 'landscape' | 'vertical';
+  /** Voz pedida pelo dono neste clipe (vale mesmo com o modo simulado ligado). */
+  tts?: 'fake' | 'google';
+}
+
+/** Caracteres de voz do Google gastos no mês (mesma regra do agents). */
+export async function googleCharsThisMonth(): Promise<number> {
+  const agg = await getPrisma().costLedger.aggregate({
+    _sum: { characters: true },
+    where: {
+      provider: 'tts',
+      model: { startsWith: 'google:' },
+      dayKey: { startsWith: channelMonth() },
+    },
+  });
+  return agg._sum.characters ?? 0;
 }
 
 export function clipJobIdFor(data: ClipRequest, now = new Date()): string {

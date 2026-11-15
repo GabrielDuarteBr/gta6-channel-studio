@@ -31,9 +31,13 @@ function Feedback({ state }: { state: ActionState }) {
 export function ClipForm({
   demoScript,
   allowedTags,
+  defaultVoice,
+  defaultLayout,
 }: {
   demoScript: string;
   allowedTags: string[];
+  defaultVoice: 'fake' | 'google';
+  defaultLayout: 'landscape' | 'vertical';
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(generateClipAction, {});
   return (
@@ -55,9 +59,16 @@ export function ClipForm({
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-48 space-y-1.5">
           <Label htmlFor="clip-layout">Formato</Label>
-          <Select id="clip-layout" name="layout" defaultValue="landscape">
+          <Select id="clip-layout" name="layout" defaultValue={defaultLayout}>
             <option value="landscape">Vídeo longo (16:9)</option>
             <option value="vertical">Short (9:16)</option>
+          </Select>
+        </div>
+        <div className="w-56 space-y-1.5">
+          <Label htmlFor="clip-tts">Voz</Label>
+          <Select id="clip-tts" name="tts" defaultValue={defaultVoice}>
+            <option value="google">Google Chirp 3 HD (real)</option>
+            <option value="fake">Voz de teste (robótica, grátis)</option>
           </Select>
         </div>
         <Button type="submit" disabled={pending}>

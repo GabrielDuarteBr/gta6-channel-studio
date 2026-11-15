@@ -7,6 +7,9 @@ Nada de comando livre.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import json
 import os
 import shutil
@@ -125,6 +128,53 @@ def tts_espeak(text: str, out_rel: str, voice: str = "pt-br", speed: int = 165) 
         stdin=spoken,
     )
     return {"path": _relative(out), "duration_sec": round(wav_duration(out), 4)}
+
+
+MAX_IMPORT_BYTES = 30 * 1024 * 1024
+
+
+def import_wav(out_rel: str, data_b64: str) -> dict:
+    """Grava um WAV recebido (ex.: voz do provedor real) depois de conferir que é PCM de verdade.
+
+    Escreve num arquivo temporário e troca no fim (nunca deixa um WAV pela metade).
+    """
+    out = safe_path(out_rel)
+    if out.suffix != ".wav":
+        raise MediaToolError("a saída precisa ser .wav")
+    if len(data_b64) > MAX_IMPORT_BYTES * 4 // 3 + 4:
+        raise MediaToolError("áudio grande demais")
+    try:
+        data = base64.b64decode(data_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise MediaToolError("áudio não está em base64") from exc
+    if len(data) < 44 or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise MediaToolError("não é um arquivo WAV")
+    try:
+        with wave.open(io.BytesIO(data), "rb") as w:
+            if w.getsampwidth() != 2 or w.getnframes() == 0:
+                raise MediaToolError("WAV precisa ser PCM 16 bits e não vazio")
+    except wave.Error as exc:
+        raise MediaToolError(f"WAV inválido: {exc}") from exc
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    tmp.write_bytes(data)
+    tmp.replace(out)
+    return {"path": _relative(out), "duration_sec": round(wav_duration(out), 4)}
+
+
+def audio_info(rel: str) -> dict:
+    """Existe? Qual a duração? (cache de voz: o mesmo texto não é pago duas vezes)."""
+    path = safe_path(rel)
+    if not path.is_file() or path.suffix != ".wav":
+        return {"exists": False}
+    try:
+        return {
+            "exists": True,
+            "path": _relative(path),
+            "duration_sec": round(wav_duration(path), 4),
+        }
+    except (wave.Error, EOFError):
+        return {"exists": False}
 
 
 def _to_track_pcm(src: Path, dst: Path) -> None:

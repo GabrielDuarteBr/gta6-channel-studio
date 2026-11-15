@@ -106,6 +106,8 @@ model CostLedger {
   outputTokens     Int?
   cacheReadTokens  Int?
   cacheWriteTokens Int?
+  /// Caracteres de voz (TTS) cobráveis desta linha (cota grátis mensal do Google)
+  characters       Int?
   /// Caracteres de TTS, número de imagens etc.
   units            Float?
   costUsd          Decimal  @db.Decimal(12, 6)

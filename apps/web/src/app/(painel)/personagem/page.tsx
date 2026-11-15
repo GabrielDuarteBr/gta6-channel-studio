@@ -15,7 +15,7 @@ import { activeBible, getAllSettings, getPrisma, listBibleVersions } from '@stud
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
-import { listClips } from '@/server/character';
+import { googleCharsThisMonth, listClips } from '@/server/character';
 import { restoreBibleAction } from './actions';
 import { BibleForm, ClipForm } from './forms';
 
@@ -44,11 +44,12 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'error' | 'i
 
 export default async function CharacterPage() {
   const prisma = getPrisma();
-  const [bible, versions, clips, settings] = await Promise.all([
+  const [bible, versions, clips, settings, googleChars] = await Promise.all([
     activeBible(prisma),
     listBibleVersions(prisma, 10),
     listClips(6),
     getAllSettings(prisma),
+    googleCharsThisMonth(),
   ]);
 
   return (
@@ -129,9 +130,32 @@ export default async function CharacterPage() {
             <div>
               <dt className="text-white">Voz</dt>
               <dd className="mt-1 text-xs text-haze-400" data-testid="voz-atual">
-                {settings.character.ttsProvider === 'fake'
-                  ? 'Voz de teste (espeak-ng, robótica, grátis). A voz real entra quando você escolher o provedor.'
-                  : settings.character.ttsProvider}
+                {settings.character.ttsProvider === 'google'
+                  ? `Google Chirp 3 HD · ${settings.character.googleVoice.split('-').pop()} · velocidade ${settings.character.speakingRate}`
+                  : 'Voz de teste (espeak-ng, robótica, grátis).'}
+                {settings['mode.simulation'] ? (
+                  <span className="mt-1 block text-sunset">
+                    Modo simulado ligado: os clipes usam a voz de teste, a não ser que você escolha
+                    &quot;Google&quot; no clipe.
+                  </span>
+                ) : null}
+              </dd>
+              <dd className="mt-2" data-testid="cota-voz">
+                <div className="flex justify-between text-xs text-haze-400">
+                  <span>Cota grátis do Google neste mês</span>
+                  <span>
+                    {googleChars.toLocaleString('pt-BR')} /{' '}
+                    {settings.character.freeCharsPerMonth.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-night-800">
+                  <div
+                    className="h-full bg-neon-cyan"
+                    style={{
+                      width: `${Math.min(100, (googleChars / Math.max(1, settings.character.freeCharsPerMonth)) * 100)}%`,
+                    }}
+                  />
+                </div>
               </dd>
             </div>
           </dl>
@@ -145,7 +169,12 @@ export default async function CharacterPage() {
           vídeo, quadro a quadro.
         </CardDescription>
         <div className="mt-3">
-          <ClipForm demoScript={DEMO_SCRIPT} allowedTags={ALLOWED_TAGS} />
+          <ClipForm
+            demoScript={DEMO_SCRIPT}
+            allowedTags={ALLOWED_TAGS}
+            defaultVoice={settings['mode.simulation'] ? 'fake' : settings.character.ttsProvider}
+            defaultLayout={settings.character.layout}
+          />
         </div>
         <ul className="mt-5 space-y-3" data-testid="lista-clipes">
           {clips.length === 0 ? (

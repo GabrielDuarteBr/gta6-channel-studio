@@ -283,8 +283,40 @@ Para coletar fora do horário: botão **Coletar agora** ou `make coletar`.
 
 ## 10. Fase 2: o personagem (Zeca Neon)
 
-Nesta fase não há chave nova. A voz é de **teste** (espeak-ng, robótica e grátis); a voz real entra
-quando você escolher o provedor.
+A voz do Zeca é o **Google Chirp 3 HD** (1 milhão de caracteres grátis por mês; o nosso uso fica
+bem abaixo). Sem a chave, tudo funciona com a voz de **teste** (espeak-ng, robótica e grátis).
+
+### 10.1 Chave da voz do Google (navegador do Windows, ~10 min)
+
+Use o **mesmo projeto** do Google Cloud da chave do YouTube (`radar-neon`).
+
+1. Abra https://console.cloud.google.com e confira que o projeto `radar-neon` está selecionado no
+   topo.
+2. **Faturamento**: menu ☰ → **Faturamento** → vincule uma conta de faturamento (cartão). A cota
+   grátis só vale com faturamento ativo; abaixo dela nada é cobrado.
+3. Menu ☰ → **APIs e serviços** → **Biblioteca** → procure **Cloud Text-to-Speech API** →
+   **Ativar**.
+4. Menu ☰ → **APIs e serviços** → **Credenciais** → **Criar credenciais** → **Chave de API**. Na
+   chave criada: **Restrições de API** → **Restringir chave** → marque só **Cloud Text-to-Speech
+   API** → **Salvar**. Copie a chave (começa com `AIza`). **Não cole no chat.**
+5. Recomendado: **Faturamento** → **Orçamentos e alertas** → **Criar orçamento** (ex.: R$ 5) com
+   alertas em 50%, 90% e 100%.
+
+O estúdio também se protege sozinho: para em **95% da cota grátis do mês** (Configurações → Voz do
+Zeca → "permitir pagar além da cota", desligado por padrão) e respeita o teto de gasto. A tela
+**Personagem** mostra quantos caracteres já foram usados no mês. O mesmo trecho com a mesma voz
+fica guardado e não é pago duas vezes.
+
+O `rodar-fase-2.bat` pede essa chave (escondida), testa e grava no `.env`. À mão: `nano .env`, linha
+`GOOGLE_TTS_API_KEY=` e depois `make up`.
+
+**Escolher a voz:** `make vozes` gera uma amostra de cada voz masculina em `vozes/` (o `.bat` copia
+para a Área de Trabalho, pasta `radar-neon-vozes`). Ouça e escolha em **Configurações → Voz do
+Zeca** (ex.: `pt-BR-Chirp3-HD-Charon`). O padrão é `pt-BR-Chirp3-HD-Puck`.
+
+**Modo simulado:** com ele ligado, os clipes usam a voz de teste. Para ouvir a voz do Google num
+clipe, escolha **Google** no formulário do clipe (ou `make zeca VOZ=google`). O aceite usa a voz de
+teste de propósito (o resultado precisa ser sempre igual).
 
 ### Jeito rápido: `windows/rodar-fase-2.bat` (recomendado)
 
@@ -293,11 +325,14 @@ Dê **dois cliques** no `rodar-fase-2.bat` (não precisa de administrador). Ele:
 1. confere o Ubuntu, o projeto e o Docker Desktop (abre o Docker se estiver fechado);
 2. troca o projeto para a versão da Fase 2 (alterações locais vão para o `git stash`, nada é
    apagado);
-3. roda o `make accept-2` (de 20 a 40 minutos: a primeira vez reconstrói as imagens, com o Rhubarb
+3. pede a chave da voz do Google (seção 10.1), testa e grava no `.env`;
+4. gera as amostras das vozes (`radar-neon-vozes`) e um clipe do Zeca com a voz do Google
+   (`radar-neon-zeca-voz-google.mp4`) na Área de Trabalho;
+5. roda o `make accept-2` (de 20 a 40 minutos: a primeira vez reconstrói as imagens, com o Rhubarb
    e a voz de teste);
-4. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-2.txt`) e **o vídeo do Zeca
-   falando** (`radar-neon-zeca-teste.mp4`);
-5. abre a tela **Personagem** no navegador.
+6. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-2.txt`) e o vídeo do aceite
+   (`radar-neon-zeca-teste.mp4`);
+7. abre a tela **Personagem** no navegador.
 
 ### Pelo Ubuntu (mesmo caminho, à mão)
 
@@ -339,7 +374,8 @@ Para gerar um clipe pelo Ubuntu: `make zeca` (ou `make zeca VERTICAL=1` para Sho
 | `make logs s=web` | logs ao vivo de um serviço |
 | `make owner` | recria o login (derruba as sessões abertas) |
 | `make coletar` | coleta notícias agora e mostra o resultado por fonte |
-| `make zeca` | clipe de teste do Zeca (`VERTICAL=1` para Short) |
+| `make zeca` | clipe de teste do Zeca (`VERTICAL=1` para Short, `VOZ=google` para a voz real) |
+| `make vozes` | lista as vozes do Google e gera amostras para ouvir |
 | `make reset` | **apaga** os dados locais (pede confirmação) |
 
 ## O notebook dormiu ou desligou?

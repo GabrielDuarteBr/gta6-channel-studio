@@ -80,7 +80,7 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   Fontes). **Reddit fora**: a API fechou para apps novos e os feeds RSS desligam em 13/11/2026.
 - **Personagem (Fase 2)**: roteiro com marcações `[feliz] [surpreso] [serio] [debochado] [bravo]
   [neutro]`, gestos `[aponta_tela] [aceno]` e `[pausa]`/`[pausa:ms]` → cada trecho vira um áudio
-  (TTS plugável; hoje só a voz de teste espeak-ng) → worker-media junta a trilha com pausas e devolve
+  (TTS plugável: `google` = Chirp 3 HD, `fake` = espeak-ng) → worker-media junta a trilha com pausas e devolve
   o tempo de cada trecho → Rhubarb (`-r phonetic --threads 1`, bocas A–H/X) → linha do tempo →
   composição `ZecaClip` (16:9 ou 9:16). Job `character.clip` na fila `render` (agents). O render é
   assíncrono (`POST /render` devolve id; `GET /render/<id>`) e serve `/data/work` só na rede interna;
@@ -89,6 +89,14 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   dizendo que é humano. Bíblia versionada (`CharacterBible`, regras fixas que nenhuma versão remove).
   Rive: prova de conceito em `docs/fase-2-rive-poc.md` (componente próprio, sem CDN); camadas é o
   padrão.
+- **Voz (Google Chirp 3 HD)**: `packages/providers/src/google-tts.ts`, conferido no documento de
+  descoberta oficial (`v1/text:synthesize`, chave no cabeçalho `x-goog-api-key`, LINEAR16 com
+  cabeçalho WAV, `speakingRate` 0,25–2). Chave `GOOGLE_TTS_API_KEY` só no `.env` (agents). Cache por
+  voz+velocidade+texto em `/data/work/tts-cache` (não paga duas vezes, render repetível). Trava em 95%
+  da cota grátis mensal (`settings.character.freeCharsPerMonth`, padrão 1 milhão) salvo
+  `allowPaid`, e teto de gasto; caracteres no `CostLedger.characters`. Modo simulado = voz de teste,
+  salvo pedido explícito no clipe (`tts: 'google'`). `make vozes` lista as vozes da chave e gera
+  amostras.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -108,7 +116,8 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make render-test` | render de teste do Zeca no container |
 | `make build-prod` | imagens de produção |
 | `make coletar` | coleta notícias agora (pela fila) e imprime o resultado por fonte |
-| `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`) |
+| `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`, `VOZ=google`) |
+| `make vozes` | vozes Chirp 3 HD da chave + amostras (`AMOSTRAS=0` só lista) |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
 | `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
 | `make accept-2` | aceite da Fase 2 (clipe 2× com quadros idênticos, Short, testes) |

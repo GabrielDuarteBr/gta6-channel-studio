@@ -139,6 +139,8 @@ services:
       # Chaves das APIs (vazias = a pesquisa pula o YouTube e a triagem usa o modo simulado).
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Voz do Zeca (Google Cloud Text-to-Speech, Chirp 3 HD). Vazia = só a voz de teste.
+      GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }

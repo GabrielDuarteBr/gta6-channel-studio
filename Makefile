@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 zeca diagnose
+.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 zeca vozes diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -51,8 +51,11 @@ owner: .env ## Cria/recria o dono do painel (e-mail, senha e 2FA)
 coletar: .env ## Coleta notícias agora e mostra o resultado por fonte
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/collect-now.ts
 
-zeca: .env ## Clipe de teste do Zeca (voz de teste + boca sincronizada); ROTEIRO="..." para outro texto
-	$(COMPOSE) exec -T -e ROTEIRO agents node_modules/.bin/tsx src/scripts/character-clip.ts $(if $(VERTICAL),--vertical,)
+zeca: .env ## Clipe de teste do Zeca; ROTEIRO="...", VERTICAL=1, VOZ=google (voz real mesmo no modo simulado)
+	$(COMPOSE) exec -T -e ROTEIRO agents node_modules/.bin/tsx src/scripts/character-clip.ts $(if $(VERTICAL),--vertical,) $(if $(VOZ),--voz $(VOZ),)
+
+vozes: .env ## Lista as vozes Chirp 3 HD (pt-BR) da sua chave e gera amostras em vozes/ (AMOSTRAS=0 só lista)
+	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/voices.ts $(if $(filter 0,$(AMOSTRAS)),,--amostras)
 
 reset: ## APAGA banco, filas e arquivos locais (pede confirmação)
 	@read -r -p "Isso apaga banco, filas e arquivos locais do notebook. Digite APAGAR para confirmar: " c; \

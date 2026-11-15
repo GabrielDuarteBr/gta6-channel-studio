@@ -10,8 +10,9 @@ import {
 import { activeBible, audit, type PrismaClient } from '@studio/db';
 import { assertCharacterLine } from '@studio/policy';
 import type { TtsProvider } from '@studio/providers';
-import { channelDay, type Logger } from '@studio/shared';
+import type { Logger } from '@studio/shared';
 import type { MediaService, RenderReport, RenderService } from './services';
+import { recordTts } from './tts';
 
 /** Muda quando a arte em camadas muda (entra no id do clipe). */
 export const ART_VERSION = 'camadas-provisoria-1';
@@ -45,6 +46,10 @@ export interface ClipContext {
   prisma: PrismaClient;
   log: Logger;
   tts: TtsProvider;
+  /** Nome completo da voz real (ex.: pt-BR-Chirp3-HD-Puck), para o ledger. */
+  ttsVoice?: string;
+  /** Velocidade da voz real (entra no id do clipe: outra velocidade, outro clipe). */
+  ttsRate?: number;
   media: MediaService;
   render: RenderService;
 }
@@ -79,6 +84,8 @@ export async function produceCharacterClip(
     script: input.script,
     layout: input.layout,
     tts: ctx.tts.id,
+    voice: ctx.ttsVoice ?? null,
+    rate: ctx.ttsRate ?? null,
     bible: bible.version,
     art: ART_VERSION,
     label: input.label ?? null,
@@ -86,23 +93,14 @@ export async function produceCharacterClip(
   const dir = `clips/${id}`;
   ctx.log.info({ clipId: id, segments: parsed.segments.length }, 'clipe do personagem: voz');
 
+  // Cada trecho entra no ledger (caracteres e custo real); o que veio do cache não gasta.
   let ttsCostUsd = 0;
   const voiced: Array<{ path: string; pauseAfterMs: number }> = [];
   for (const [i, seg] of parsed.segments.entries()) {
     const r = await ctx.tts.synthesize({ text: seg.text, out: `${dir}/trecho-${i}.wav` });
-    ttsCostUsd += r.costUsd;
+    ttsCostUsd += await recordTts(ctx.prisma, ctx.tts, r, 'character:clip', ctx.ttsVoice);
     voiced.push({ path: r.path, pauseAfterMs: seg.pauseAfterMs });
   }
-  await ctx.prisma.costLedger.create({
-    data: {
-      dayKey: channelDay(),
-      provider: 'tts',
-      model: ctx.tts.id,
-      task: 'character:clip',
-      costUsd: ttsCostUsd,
-      simulated: !ctx.tts.real,
-    },
-  });
 
   const track = await ctx.media.voiceTrack(voiced, `${dir}/voz.wav`, 200 + parsed.leadInMs, 500);
   const lips = await ctx.media.lipsync(track.path);
