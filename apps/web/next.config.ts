@@ -19,7 +19,13 @@ const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: root,
   poweredByHeader: false,
-  transpilePackages: ['@studio/shared', '@studio/db', '@studio/policy', '@studio/queue', '@studio/avatar'],
+  transpilePackages: [
+    '@studio/shared',
+    '@studio/db',
+    '@studio/policy',
+    '@studio/queue',
+    '@studio/avatar',
+  ],
   serverExternalPackages: ['@node-rs/argon2', 'pino', 'ioredis', 'bullmq'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
