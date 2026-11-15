@@ -8,7 +8,7 @@ test('visão geral mostra o canal, o personagem e o modo simulado', async ({ pag
 });
 
 test('todas as telas do menu abrem', async ({ page }) => {
-  for (const path of ['/pauta', '/pauta/fontes']) {
+  for (const path of ['/pauta', '/pauta/fontes', '/personagem']) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
   }
@@ -17,7 +17,6 @@ test('todas as telas do menu abrem', async ({ page }) => {
     '/aprovacao',
     '/calendario',
     '/parceiros',
-    '/personagem',
     '/arte',
     '/biblioteca',
     '/comando',

@@ -135,6 +135,9 @@ importers:
       '@radix-ui/react-slot':
         specifier: 1.5.0
         version: 1.5.0(@types/react@19.3.0)(react@19.3.1)
+      '@studio/avatar':
+        specifier: workspace:*
+        version: link:../../packages/avatar
       '@studio/db':
         specifier: workspace:*
         version: link:../../packages/db
