@@ -15,4 +15,6 @@ regexes = [
   '''test-only-[a-z-]+''',
   # senhas fictícias dos testes (packages/db/test, e2e): "senha-…-muito-forte-…"
   '''senha-[a-z0-9-]*muito-forte[a-z0-9-]*''',
+  # referência às variáveis do S3 no código (o valor vem do .env), não um segredo
+  '''cfg\.S3_(ACCESS|SECRET)_KEY''',
 ]

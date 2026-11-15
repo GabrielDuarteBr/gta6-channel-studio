@@ -10,8 +10,16 @@ describe('leitura de imagem pelos bytes', () => {
       width: 1280,
       height: 720,
     });
-    expect(sniffImage(fakeJpeg(1920, 1080))).toMatchObject({ ext: 'jpg', width: 1920, height: 1080 });
-    expect(sniffImage(fakeWebp(1024, 1536))).toMatchObject({ ext: 'webp', width: 1024, height: 1536 });
+    expect(sniffImage(fakeJpeg(1920, 1080))).toMatchObject({
+      ext: 'jpg',
+      width: 1920,
+      height: 1080,
+    });
+    expect(sniffImage(fakeWebp(1024, 1536))).toMatchObject({
+      ext: 'webp',
+      width: 1024,
+      height: 1536,
+    });
   });
 
   it('recusa o que não é imagem, pequena demais e grande demais', () => {

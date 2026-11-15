@@ -37,7 +37,11 @@ d('Biblioteca: manifesto obrigatório, sem duplicar, revogação', () => {
     expect(r.asset.tags).toEqual(['trailer', 'praia']);
     expect([...store.objects.keys()]).toEqual([r.asset.storageKey]);
     const m = await prisma.rightsManifest.findUniqueOrThrow({ where: { assetId: r.asset.id } });
-    expect(m).toMatchObject({ origin: 'OFFICIAL_PRESS', status: 'ACTIVE', credit: 'Rockstar Games' });
+    expect(m).toMatchObject({
+      origin: 'OFFICIAL_PRESS',
+      status: 'ACTIVE',
+      credit: 'Rockstar Games',
+    });
     expect(await prisma.auditLog.count({ where: { action: 'library.asset.add' } })).toBe(1);
 
     const again = await addAsset(prisma, store, {
