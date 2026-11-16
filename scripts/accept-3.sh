@@ -113,10 +113,13 @@ run() {
 import json, sys
 v = json.loads(sys.argv[1])["producao"]["renderReport"][-1]["video"]
 cpu = v.get("cpuSeconds", 0)
+secs = max(v["seconds"], 0.1)
+# O render roda 1 por vez e usa ~1 núcleo: na VPS o tempo fica parecido com o do notebook
+# (vCPU de nuvem costuma ser até ~40% mais lenta que um núcleo do i7), não dividido por 4.
 print(
-    f"{v['width']}x{v['height']}: {v['seconds']:.0f} s de render, {v['frames']} quadros, "
-    f"CPU {cpu:.0f} s, pico {v.get('peakMemoryMb', 0)} MB ({v.get('metricsSource', '?')}); "
-    f"VPS 4 vCPU ≈ {cpu / 3.2:.0f} s"
+    f"{v['width']}x{v['height']}: {secs:.0f} s de render, {v['frames']} quadros, "
+    f"CPU {cpu:.0f} s (~{cpu / secs:.1f} núcleo em média), pico {v.get('peakMemoryMb', 0)} MB "
+    f"({v.get('metricsSource', '?')}); na VPS: ~{secs:.0f} a {secs * 1.4:.0f} s"
 )
 PY
 )

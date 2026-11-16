@@ -230,7 +230,7 @@ export default async function ProductionPage() {
                           Render: {lastReport.video.seconds.toFixed(0)} s ({lastReport.video.frames}{' '}
                           quadros)
                           {lastReport.video.cpuSeconds !== undefined
-                            ? ` · CPU ${lastReport.video.cpuSeconds.toFixed(0)} s · pico ${lastReport.video.peakMemoryMb} MB · ≈ ${(lastReport.video.cpuSeconds / 3.2).toFixed(0)} s numa VPS de 4 vCPU (estimativa)`
+                            ? ` · CPU ${lastReport.video.cpuSeconds.toFixed(0)} s (~${(lastReport.video.cpuSeconds / Math.max(0.1, lastReport.video.seconds)).toFixed(1)} núcleo) · pico ${lastReport.video.peakMemoryMb} MB · na VPS ~${lastReport.video.seconds.toFixed(0)} a ${(lastReport.video.seconds * 1.4).toFixed(0)} s (estimativa)`
                             : ''}
                         </p>
                       ) : null}
