@@ -406,7 +406,7 @@ Dê **dois cliques** no `rodar-fase-3.bat`. Ele:
 2. troca o projeto para a versão da Fase 3;
 3. pede a chave da Gemini API (seção 11.1), testa e grava no `.env` (e a da Anthropic, se faltar);
 4. lista os modelos de imagem e, se você quiser, gera o comparativo (`radar-neon-imagens`);
-5. pergunta se roda **1 Short e 1 vídeo longo de verdade** (Claude + imagens + voz, ~R$ 6) para
+5. pergunta se roda **1 Short e 1 vídeo longo de verdade** (Claude + imagens + voz, ~R$ 3) para
    medir o custo real;
 6. roda o `make accept-3` (de 30 a 60 minutos);
 7. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-3.txt`), os vídeos e as

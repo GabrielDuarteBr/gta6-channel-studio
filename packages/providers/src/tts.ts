@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Voz (TTS) plugável. Cada provedor transforma um trecho de texto num WAV na pasta de
  * trabalho e informa duração, caracteres e custo. O provedor real entra quando o dono
- * escolher (comparação de custo dentro do teto de US$ 50/mês).
+ * escolher (comparação de custo dentro do teto de gasto, em reais).
  */
 export interface TtsRequest {
   text: string;

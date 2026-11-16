@@ -7,7 +7,7 @@
 #  4. o render recusa mídia sem direitos (manifesto revogado)
 #  5. relatório de tempo, CPU e memória por render, com estimativa para a VPS
 #  6. custo por vídeo × orçamento (em reais): com REAL=1, produz 1 Short e 1 longo de verdade
-#     (Claude, imagens e voz do Google; custa ~R$ 6 e respeita o teto); sem REAL=1, estimativa
+#     (Claude, imagens e voz do Google; custa ~R$ 3 e respeita o teto de R$ 5/dia); sem REAL=1, estimativa
 #  7. testes (unitários, integração e e2e)
 # Vídeos e thumbnails vão para a Área de Trabalho do Windows (radar-neon-fase3-*).
 set -uo pipefail

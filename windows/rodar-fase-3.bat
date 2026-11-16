@@ -23,7 +23,7 @@ exit /b
 #  2. atualiza o projeto para a branch da Fase 3
 #  3. pede a chave das imagens (Gemini API) e, se faltar, a da Anthropic (escondidas), testa e grava
 #  4. lista os modelos de imagem e, se você quiser, gera o comparativo (Área de Trabalho)
-#  5. pergunta se produz 1 Short e 1 longo DE VERDADE (custo real, ~US$ 1)
+#  5. pergunta se produz 1 Short e 1 longo DE VERDADE (custo real, ~R$ 3)
 #  6. roda o aceite da Fase 3 (make accept-3) e salva resultado, vídeos e thumbnails na Área de Trabalho
 #  7. abre a tela Produção no navegador
 #  Pré-requisito: o instalar-radar-neon.bat já ter rodado uma vez (Fase 0).
@@ -389,7 +389,7 @@ echo "  Subindo o estúdio com a versão nova (a primeira vez reconstrói as ima
 make up || exit 2
 echo
 if [ "$compare" = 1 ]; then
-  echo "  Comparativo: as mesmas 3 imagens em até 3 modelos do Google (pago, ~US$ 0,40)..."
+  echo "  Comparativo: as mesmas 3 imagens em até 3 modelos do Google (pago, ~R$ 2,40)..."
   if make imagens COMPARAR=1; then
     mkdir -p "$desk/$folder"
     $COMPOSE cp worker-media:/data/work/comparativo-imagens/. "$desk/$folder/" >/dev/null 2>&1 && echo "  [OK] imagens em: $folder (Área de Trabalho)"
@@ -532,7 +532,7 @@ if ($geminiSet) {
   Write-Info '  1. Ative a "Generative Language API".'
   Write-Info '  2. Crie uma chave de API e restrinja à "Generative Language API".'
   Write-Info 'O faturamento e o alerta de orçamento são os mesmos da voz (seção 10.1).'
-  Write-Info 'Preço aproximado: Imagen 4 Fast ~US$ 0,02 por imagem. O estúdio respeita o teto de gasto.'
+  Write-Info 'Preço aproximado: Imagen 4 Fast ~R$ 0,12 por imagem. O estúdio respeita o teto de gasto.'
   if (Read-YesNo 'Abrir a página da Generative Language API no navegador agora?' $true) {
     Start-Process 'https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com'
   }
@@ -552,7 +552,7 @@ if (-not $ttsSet) { Write-Attention 'Sem GOOGLE_TTS_API_KEY (Fase 2): os vídeos
 Write-Step 'Imagens do Google: modelos da sua chave e comparativo'
 $compare = '0'
 if ($geminiSet) {
-  if (Read-YesNo 'Gerar o comparativo (as mesmas 3 imagens em até 3 modelos, ~US$ 0,40)?' $true) { $compare = '1' }
+  if (Read-YesNo 'Gerar o comparativo (as mesmas 3 imagens em até 3 modelos, ~R$ 2,40)?' $true) { $compare = '1' }
 }
 $imgValues = @{ PROJECT = $ProjectRel; DESKDIR = (ConvertTo-WslPath $Desktop); FOLDER = $ImagesFolder; COMPARE = $compare }
 $null = Invoke-LinuxScript -Name 'imagens.sh' -Content $LinuxImages -Values $imgValues
@@ -567,7 +567,7 @@ Write-Step 'Aceite da Fase 3 (make accept-3)'
 $real = '0'
 if ($geminiSet -and $anthropicSet -and $ttsSet) {
   Write-Info 'Para medir o custo real por vídeo, o aceite pode produzir 1 Short e 1 vídeo longo DE VERDADE'
-  Write-Info '(roteiro com o Claude, imagens do Google e a voz do Zeca). Custo aproximado: US$ 1. Nada é publicado.'
+  Write-Info '(roteiro com o Claude, imagens do Google e a voz do Zeca). Custo aproximado: R$ 3 (cabe no teto de R$ 5 por dia). Nada é publicado.'
   if (Read-YesNo 'Produzir de verdade no aceite?' $true) { $real = '1' }
 } else {
   Write-Info 'Sem todas as chaves (Gemini, Anthropic e voz do Google), o aceite roda só no modo simulado (grátis).'

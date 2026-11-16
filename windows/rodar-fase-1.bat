@@ -512,7 +512,7 @@ if ($youtubeSet) {
 }
 
 Write-Host ''
-Write-Host '  Anthropic (opcional; triagem com Claude Haiku, menos de US$ 0,05 por dia)' -ForegroundColor Cyan
+Write-Host '  Anthropic (opcional; triagem com Claude Haiku, menos de R$ 0,30 por dia)' -ForegroundColor Cyan
 if ($anthropicSet) {
   Write-Ok 'ANTHROPIC_API_KEY já está no .env'
   if (Read-YesNo 'Trocar por outra chave?' $false) {
