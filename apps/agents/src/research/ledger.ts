@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@studio/db';
-import { getAllSettings } from '@studio/db';
+import { currentFx, getAllSettings } from '@studio/db';
 import type { BudgetStatus, LlmCostRecord } from '@studio/llm';
 import type { QuotaRecorder } from '@studio/research';
 import { channelDay, channelMonth, youtubeQuotaDay } from '@studio/shared';
@@ -21,9 +21,13 @@ export async function searchCallsToday(prisma: PrismaClient): Promise<number> {
   return agg._sum.units ?? 0;
 }
 
-/** Gasto real (sem simulado) do dia e do mês, e os tetos das configurações. */
+/**
+ * Gastos reais (sem simulado) em dólar, como o ledger guarda, e o teto em reais convertido
+ * pela cotação efetiva (com spread e IOF).
+ */
 export async function budgetStatus(prisma: PrismaClient): Promise<BudgetStatus> {
   const settings = await getAllSettings(prisma);
+  const fx = await currentFx(prisma);
   const [today, month] = await Promise.all([
     prisma.costLedger.aggregate({
       _sum: { costUsd: true },
@@ -37,8 +41,9 @@ export async function budgetStatus(prisma: PrismaClient): Promise<BudgetStatus> 
   return {
     spentTodayUsd: Number(today._sum.costUsd ?? 0),
     spentMonthUsd: Number(month._sum.costUsd ?? 0),
-    dailyLimitUsd: settings.budget.dailyUsd,
-    monthlyLimitUsd: settings.budget.monthlyUsd,
+    dailyLimitUsd: settings.budget.dailyBrl / fx.effective,
+    monthlyLimitUsd: settings.budget.monthlyBrl / fx.effective,
+    brlPerUsd: fx.effective,
   };
 }
 

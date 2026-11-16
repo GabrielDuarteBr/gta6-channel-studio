@@ -1,3 +1,5 @@
+import { currentFx, getPrisma } from '@studio/db';
+import { formatBrl, formatBrlRate } from '@studio/shared';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Input, Label, Select, Toggle } from '@/components/ui/input';
@@ -22,6 +24,8 @@ export default async function SettingsPage() {
   const { env, settings, profileInfo } = await effectiveState();
   const limits = settings['limits.daily'];
   const budget = settings.budget;
+  const currency = settings.currency;
+  const fx = await currentFx(getPrisma());
   const spoiler = settings.antiSpoiler;
   const identity = settings['channel.identity'];
   const research = settings.research;
@@ -98,30 +102,82 @@ export default async function SettingsPage() {
 
         <SettingForm
           settingKey="budget"
-          title="Orçamento de APIs"
-          description="Claude + voz + imagem. Ao atingir o teto, os agentes pausam."
+          title="Orçamento de APIs (R$)"
+          description="Claude + voz + imagem, em reais (as APIs cobram em dólar; o estúdio converte pela cotação abaixo). Ao atingir o teto, os agentes pausam."
         >
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="monthlyUsd">Teto mensal (US$)</Label>
+              <Label htmlFor="monthlyBrl">Teto mensal (R$)</Label>
               <Input
-                id="monthlyUsd"
-                name="monthlyUsd"
+                id="monthlyBrl"
+                name="monthlyBrl"
                 type="number"
                 step="0.01"
                 min={0}
-                defaultValue={budget.monthlyUsd}
+                defaultValue={budget.monthlyBrl}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="dailyUsd">Teto diário (US$)</Label>
+              <Label htmlFor="dailyBrl">Teto diário (R$)</Label>
               <Input
-                id="dailyUsd"
-                name="dailyUsd"
+                id="dailyBrl"
+                name="dailyBrl"
                 type="number"
                 step="0.01"
                 min={0}
-                defaultValue={budget.dailyUsd}
+                defaultValue={budget.dailyBrl}
+              />
+            </div>
+          </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="currency"
+          title="Cotação do dólar"
+          description={`Em uso: ${formatBrlRate(fx.rate)} ${fx.source === 'bcb-ptax' ? `(PTAX do Banco Central, ${fx.day?.split('-').reverse().join('/')})` : fx.source === 'manual' ? '(fixa)' : '(reserva, até a primeira busca no Banco Central)'} → ${formatBrl(fx.effective)} com spread e IOF. A automática é atualizada a cada 6 horas.`}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fx-source">Fonte</Label>
+              <Select id="fx-source" name="source" defaultValue={currency.source}>
+                <option value="bcb">Banco Central (PTAX, automática)</option>
+                <option value="manual">Fixa (digito abaixo)</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="fx-manual">Cotação fixa (R$ por dólar)</Label>
+              <Input
+                id="fx-manual"
+                name="manualRate"
+                type="number"
+                step="0.0001"
+                min={1}
+                max={30}
+                defaultValue={currency.manualRate}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="fx-iof">IOF do cartão (%)</Label>
+              <Input
+                id="fx-iof"
+                name="iofPercent"
+                type="number"
+                step="0.01"
+                min={0}
+                max={20}
+                defaultValue={currency.iofPercent}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="fx-spread">Spread do banco sobre o dólar (%)</Label>
+              <Input
+                id="fx-spread"
+                name="spreadPercent"
+                type="number"
+                step="0.01"
+                min={0}
+                max={20}
+                defaultValue={currency.spreadPercent}
               />
             </div>
           </div>
@@ -277,7 +333,7 @@ export default async function SettingsPage() {
             name="allowPaid"
             defaultChecked={character.allowPaid}
             label="Permitir pagar além da cota grátis"
-            description="Desligado: a voz do Google para em 95% da cota grátis do mês. Ligado: segue até o teto de gasto (US$ 30 por milhão de caracteres)."
+            description={`Desligado: a voz do Google para em 95% da cota grátis do mês. Ligado: segue até o teto de gasto (~${formatBrl(fx.usdToBrl(30))} por milhão de caracteres).`}
           />
         </SettingForm>
 
@@ -351,7 +407,10 @@ export default async function SettingsPage() {
             <div className="space-y-1.5">
               <Label htmlFor="img-provider">Provedor</Label>
               <Select id="img-provider" name="provider" defaultValue={images.provider}>
-                <option value="google">Google (pago, ~US$ 0,02 a 0,07 por imagem)</option>
+                <option value="google">
+                  Google (pago, ~{formatBrl(fx.usdToBrl(0.02))} a {formatBrl(fx.usdToBrl(0.07))} por
+                  imagem)
+                </option>
                 <option value="fake">Imagens de teste (grátis)</option>
               </Select>
             </div>

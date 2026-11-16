@@ -6,7 +6,7 @@
  * na Biblioteca). Cada imagem é paga (preço aproximado na tabela) e entra no teto de gasto.
  * A última linha é um JSON {"modelos": [...], "amostras": [...], "custoUsd": n} para o .bat.
  */
-import { getAllSettings, getPrisma } from '@studio/db';
+import { currentFx, getAllSettings, getPrisma } from '@studio/db';
 import { assertWithinBudget } from '@studio/llm';
 import {
   GoogleImageProvider,
@@ -42,11 +42,12 @@ let code = 0;
 try {
   if (!apiKey) throw new Error('GEMINI_API_KEY não configurada no .env');
   const settings = await getAllSettings(prisma);
+  const fx = await currentFx(prisma);
   const models = await listGoogleImageModels(apiKey);
   console.log(`Modelos de imagem disponíveis para a chave: ${models.length}`);
   for (const m of models) {
     const atual = m.id === settings.images.model ? '  ← atual' : '';
-    console.log(`  ${m.id.padEnd(40)} ~US$ ${m.priceUsd.toFixed(3)}/imagem${atual}`);
+    console.log(`  ${m.id.padEnd(40)} ~${fx.formatUsd(m.priceUsd)}/imagem${atual}`);
   }
   const samples: Array<Record<string, unknown>> = [];
   let total = 0;
@@ -63,7 +64,7 @@ try {
       spentMonthUsd: b.spentMonthUsd + projected,
     });
     console.log(
-      `\nComparando ${chosen.map((m) => m.id).join(', ')} (${PROMPTS.length} imagens cada; ~US$ ${projected.toFixed(2)})...`,
+      `\nComparando ${chosen.map((m) => m.id).join(', ')} (${PROMPTS.length} imagens cada; ~${fx.formatUsd(projected)})...`,
     );
     const media = new MediaService(env.MEDIA_URL);
     for (const m of chosen) {
@@ -97,6 +98,7 @@ try {
             arquivo: out,
             segundos: seconds,
             custoUsd: img.costUsd,
+            custoBrl: Number(fx.usdToBrl(img.costUsd).toFixed(4)),
           });
           console.log(`  ✓ ${m.id} #${i + 1} (${seconds} s)`);
         } catch (err) {
@@ -107,15 +109,20 @@ try {
       }
     }
     console.log(
-      `\nAmostras em comparativo-imagens/ (pasta de trabalho). Custo aproximado: US$ ${total.toFixed(3)}.`,
+      `\nAmostras em comparativo-imagens/ (pasta de trabalho). Custo aproximado: ${fx.formatUsd(total)}.`,
     );
     console.log('Escolha o modelo em Configurações → Imagens.');
   }
   console.log(
     JSON.stringify({
-      modelos: models.map((m) => ({ id: m.id, precoUsd: m.priceUsd })),
+      modelos: models.map((m) => ({
+        id: m.id,
+        precoUsd: m.priceUsd,
+        precoBrl: Number(fx.usdToBrl(m.priceUsd).toFixed(4)),
+      })),
       amostras: samples,
       custoUsd: Number(total.toFixed(4)),
+      custoBrl: Number(fx.usdToBrl(total).toFixed(4)),
     }),
   );
 } catch (err) {

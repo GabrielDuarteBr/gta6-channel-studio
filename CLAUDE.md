@@ -69,6 +69,13 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   (`packages/shared/src/profile.ts`). Todo job tem id determinístico (`deterministicJobId`) e é
   idempotente; jobs `RUNNING` ao subir viram `INTERRUPTED` e o BullMQ os devolve à fila.
 - **Cota do YouTube** conta por dia do Pacífico (`youtubeQuotaDay`); orçamento por dia de Brasília.
+- **Valores em reais**: o dono usa R$. O `CostLedger` guarda o que as APIs cobram (US$), mas tudo o
+  que o dono vê (painel, relatórios, scripts, mensagens de teto) sai em reais via `currentFx`
+  (`packages/db/src/fx.ts`): PTAX de venda do Banco Central (job `fx.update` na fila `system`, a cada
+  6 h; tabela `FxRate`) ou cotação fixa, mais spread do banco e IOF (`settings.currency`). Teto em
+  reais (`settings.budget.dailyBrl/monthlyBrl`, padrão R$ 5/dia e R$ 150/mês), convertido para
+  dólar em `budgetStatus`. Use `formatBrl`/`fx.formatUsd`; nunca mostre US$ ao dono. Fale de custos
+  com o dono em reais.
 - **Pesquisa (Fase 1)**: fila `research`, job `collect` (uma coleta por vez). Agendada por Job
   Scheduler (`research-collect`, intervalo em Configurações) + uma coleta de recuperação ao subir se a
   última ficou velha. Pipeline em `apps/agents/src/research/pipeline.ts`: coleta (GET condicional,

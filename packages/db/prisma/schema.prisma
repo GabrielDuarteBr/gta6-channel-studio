@@ -441,3 +441,15 @@ model ProductionAsset {
   @@id([productionId, assetId, role, scene])
   @@index([assetId])
 }
+
+/// Cotação do dólar (PTAX de venda do Banco Central), uma linha por dia de cotação.
+model FxRate {
+  id        String   @id @default(cuid())
+  /// AAAA-MM-DD do boletim do Banco Central
+  day       String   @unique
+  /// Reais por dólar
+  rate      Decimal  @db.Decimal(10, 4)
+  /// "bcb-ptax"
+  source    String
+  fetchedAt DateTime @default(now())
+}

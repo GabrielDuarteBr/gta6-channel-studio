@@ -13,6 +13,7 @@ import {
 import { S3ObjectStore } from '@studio/storage';
 import { CLIP_JOB } from './character/clip';
 import { runClipJob } from './character/job';
+import { FX_JOB, runFxUpdate } from './fx';
 import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
 import { runProductionJob } from './production/job';
@@ -52,6 +53,21 @@ async function main(): Promise<void> {
     { every: 5 * 60_000 },
     { name: 'heartbeat', data: {} },
   );
+  // Cotação do dólar (PTAX do Banco Central) para os valores em reais: ao subir e a cada 6 h.
+  if (process.env.FX_SCHEDULE !== 'off') {
+    await systemQueue.upsertJobScheduler(
+      'fx-update',
+      { every: 6 * 3_600_000 },
+      { name: FX_JOB, data: {} },
+    );
+    await systemQueue.add(
+      FX_JOB,
+      {},
+      { jobId: `fx.boot.${bootedAt.toISOString().slice(0, 13)}`, attempts: 3 },
+    );
+  } else {
+    await systemQueue.removeJobScheduler('fx-update');
+  }
 
   // Pesquisa: fontes padrão, coleta agendada e recuperação após o notebook dormir.
   const seeded = await seedDefaultSources(prisma);
@@ -160,6 +176,7 @@ async function main(): Promise<void> {
       'system',
       async (job) => {
         if (job.name === 'heartbeat') return { at: new Date().toISOString() };
+        if (job.name === FX_JOB) return runFxUpdate({ prisma, log });
         throw new Error(`job desconhecido na fila system: ${job.name}`);
       },
       {

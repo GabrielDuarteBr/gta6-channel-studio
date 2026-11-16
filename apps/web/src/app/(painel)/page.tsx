@@ -1,3 +1,4 @@
+import { formatBrl } from '@studio/shared';
 import { CheckCircle2, CircleDashed, Loader2 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -90,11 +91,11 @@ export default async function OverviewPage() {
             </div>
             <div className="flex justify-between">
               <dt className="text-haze-400">Teto mensal de APIs</dt>
-              <dd className="font-semibold text-white">US$ {budget.monthlyUsd.toFixed(2)}</dd>
+              <dd className="font-semibold text-white">{formatBrl(budget.monthlyBrl)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-haze-400">Teto diário</dt>
-              <dd className="font-semibold text-white">US$ {budget.dailyUsd.toFixed(2)}</dd>
+              <dd className="font-semibold text-white">{formatBrl(budget.dailyBrl)}</dd>
             </div>
           </dl>
           <Link

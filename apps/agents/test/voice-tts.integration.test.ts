@@ -106,7 +106,7 @@ d('voz do clipe: escolha, trava e ledger', () => {
     await inner.opts.guard(40); // 940 cabe
 
     await setSetting(prisma, 'character', { ...character, allowPaid: true }, 'owner');
-    await setSetting(prisma, 'budget', { monthlyUsd: 0.000001, dailyUsd: 0.000001 }, 'owner');
+    await setSetting(prisma, 'budget', { monthlyBrl: 0.000001, dailyBrl: 0.000001 }, 'owner');
     const paidTts = await ttsForClip(prisma, { mediaUrl: 'http://m', googleApiKey: 'k' });
     const guard = (
       paidTts as unknown as { inner: { opts: { guard: (n: number) => Promise<void> } } }

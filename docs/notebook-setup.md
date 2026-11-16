@@ -239,7 +239,7 @@ Configurações).
 
 Sem ela, a triagem roda no modo simulado: a pauta funciona, mas os títulos ficam no idioma original
 e sem resumo em português. Com ela, o Claude Haiku traduz, resume, classifica e junta notícias
-repetidas em idiomas diferentes. Custo estimado: **menos de US$ 0,05 por dia**, dentro do teto que
+repetidas em idiomas diferentes. Custo estimado: **menos de R$ 0,30 por dia**, dentro do teto que
 você definiu.
 
 1. Abra https://console.anthropic.com → **API Keys** → **Create Key** → copie (começa com
@@ -384,12 +384,13 @@ Mesmo projeto `radar-neon` e mesmo faturamento da voz (seção 10.1). Nada de co
 4. O alerta de orçamento da seção 10.1 já cobre as imagens (é o mesmo faturamento).
 
 Preço aproximado por imagem (sites de comparação, nov/2026; confira no console): **Imagen 4 Fast
-~US$ 0,02**, Gemini Flash Lite Image ~US$ 0,034, Gemini Flash Image ("Nano Banana 2") ~US$ 0,067.
+~R$ 0,12**, Gemini Flash Lite Image ~R$ 0,20, Gemini Flash Image ("Nano Banana 2") ~R$ 0,40
+(já com câmbio, spread e IOF).
 O estúdio respeita o teto de gasto, não gera duas vezes o mesmo pedido e guarda cada imagem na
 Biblioteca com o prompt no manifesto.
 
 **Comparar os modelos:** `make imagens` lista os modelos da sua chave; `make imagens COMPARAR=1`
-gera as mesmas 3 imagens em até 3 modelos (~US$ 0,40) na pasta `comparativo-imagens/` (o `.bat`
+gera as mesmas 3 imagens em até 3 modelos (~R$ 2,40) na pasta `comparativo-imagens/` (o `.bat`
 copia para a Área de Trabalho). Escolha em **Configurações → Imagens geradas**.
 
 ### 11.2 Chave da Anthropic (Claude)
@@ -405,7 +406,7 @@ Dê **dois cliques** no `rodar-fase-3.bat`. Ele:
 2. troca o projeto para a versão da Fase 3;
 3. pede a chave da Gemini API (seção 11.1), testa e grava no `.env` (e a da Anthropic, se faltar);
 4. lista os modelos de imagem e, se você quiser, gera o comparativo (`radar-neon-imagens`);
-5. pergunta se roda **1 Short e 1 vídeo longo de verdade** (Claude + imagens + voz, ~US$ 1) para
+5. pergunta se roda **1 Short e 1 vídeo longo de verdade** (Claude + imagens + voz, ~R$ 6) para
    medir o custo real;
 6. roda o `make accept-3` (de 30 a 60 minutos);
 7. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-3.txt`), os vídeos e as
@@ -443,6 +444,17 @@ Com custo real (precisa das chaves): `make accept-3 REAL=1`.
   vídeos e mostra quais vídeos a usaram.
 - **Arte**: cenários gerados. **Aprovar** deixa o Roteirista reaproveitar (sem pagar de novo);
   **Gerar variação** faz outra versão; **Descartar** tira dos próximos vídeos.
+
+## Valores em reais
+
+Todo valor do painel e dos relatórios aparece em **reais**. As APIs cobram em dólar; o estúdio
+converte pela **PTAX de venda do Banco Central** (buscada sozinha a cada 6 horas) e soma o que o
+cartão cobra por cima: **spread do banco (4%)** e **IOF de compra internacional (3,5%)**. Dá para
+trocar para uma cotação fixa e ajustar os percentuais em **Configurações → Cotação do dólar**. A
+cotação em uso aparece na tela **Saúde e custos**.
+
+O **teto de gasto** também é em reais: padrão **R$ 5 por dia** e **R$ 150 por mês**
+(Configurações → Orçamento de APIs). Ao atingir, os agentes pausam até o dia (ou o mês) virar.
 
 ---
 

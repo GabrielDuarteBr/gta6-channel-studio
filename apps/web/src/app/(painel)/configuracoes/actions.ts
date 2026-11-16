@@ -27,7 +27,14 @@ function valueFor(key: SettingKey, form: FormData): unknown {
     case 'limits.daily':
       return { long: num(form, 'long'), shorts: num(form, 'shorts') };
     case 'budget':
-      return { monthlyUsd: num(form, 'monthlyUsd'), dailyUsd: num(form, 'dailyUsd') };
+      return { monthlyBrl: num(form, 'monthlyBrl'), dailyBrl: num(form, 'dailyBrl') };
+    case 'currency':
+      return {
+        source: String(form.get('source') ?? 'bcb'),
+        manualRate: num(form, 'manualRate'),
+        iofPercent: num(form, 'iofPercent'),
+        spreadPercent: num(form, 'spreadPercent'),
+      };
     case 'render.resolution':
       return String(form.get('resolution') ?? 'auto');
     case 'antiSpoiler':

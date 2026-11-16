@@ -30,12 +30,26 @@ export const SETTINGS = {
     })
     .default({ long: 1, shorts: 4 }),
 
+  /** Teto de gasto com APIs, em reais (convertido pela cotação de `currency`). Pausa os agentes. */
   budget: z
     .object({
-      monthlyUsd: z.number().min(0).max(10_000),
-      dailyUsd: z.number().min(0).max(1_000),
+      monthlyBrl: z.number().min(0).max(100_000),
+      dailyBrl: z.number().min(0).max(10_000),
     })
-    .default({ monthlyUsd: 50, dailyUsd: 1.6 }),
+    .default({ monthlyBrl: 150, dailyBrl: 5 }),
+
+  /**
+   * Conversão dólar → real: PTAX de venda do Banco Central (buscada pelo agents) ou cotação fixa,
+   * mais spread do banco e IOF de compra internacional no cartão.
+   */
+  currency: z
+    .object({
+      source: z.enum(['bcb', 'manual']),
+      manualRate: z.number().min(1).max(30),
+      iofPercent: z.number().min(0).max(20),
+      spreadPercent: z.number().min(0).max(20),
+    })
+    .default({ source: 'bcb', manualRate: 5.56, iofPercent: 3.5, spreadPercent: 4 }),
 
   'render.resolution': z.enum(['auto', '720p', '1080p']).default('auto'),
 

@@ -1,5 +1,5 @@
-import { getPrisma } from '@studio/db';
-import { channelDay, youtubeQuotaDay } from '@studio/shared';
+import { currentFx, getPrisma } from '@studio/db';
+import { channelDay, formatBrl, formatBrlRate, youtubeQuotaDay } from '@studio/shared';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,7 @@ const fmtTime = new Intl.DateTimeFormat('pt-BR', {
 export default async function HealthPage() {
   const prisma = getPrisma();
   const today = channelDay();
-  const [checks, audit, costToday, quotaToday, state, research] = await Promise.all([
+  const [checks, audit, costToday, quotaToday, state, research, fx] = await Promise.all([
     checkAll(),
     prisma.auditLog.findMany({ orderBy: { at: 'desc' }, take: 25 }),
     prisma.costLedger.aggregate({ _sum: { costUsd: true }, where: { dayKey: today } }),
@@ -29,6 +29,7 @@ export default async function HealthPage() {
     }),
     effectiveState(),
     researchStatus(),
+    currentFx(prisma),
   ]);
   const spentToday = Number(costToday._sum.costUsd ?? 0);
   const quotaUnits = quotaToday.find((q) => q.bucket === 'default')?._sum.units ?? 0;
@@ -70,7 +71,19 @@ export default async function HealthPage() {
             <div className="flex justify-between">
               <dt className="text-haze-400">Gasto com APIs</dt>
               <dd className="font-semibold text-white">
-                US$ {spentToday.toFixed(2)} / {state.settings.budget.dailyUsd.toFixed(2)}
+                {fx.formatUsd(spentToday)} / {formatBrl(state.settings.budget.dailyBrl)}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-haze-400">Dólar</dt>
+              <dd className="text-right font-semibold text-white" data-testid="cotacao">
+                {formatBrlRate(fx.rate)}{' '}
+                {fx.source === 'bcb-ptax'
+                  ? `(PTAX ${fx.day?.split('-').reverse().join('/')})`
+                  : fx.source === 'manual'
+                    ? '(fixa)'
+                    : '(reserva, sem cotação do BCB ainda)'}{' '}
+                · com IOF e spread {formatBrl(fx.effective)}
               </dd>
             </div>
             <div className="flex justify-between">

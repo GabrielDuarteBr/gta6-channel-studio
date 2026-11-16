@@ -20,6 +20,8 @@ services:
       ANTHROPIC_API_KEY: ''
       GOOGLE_TTS_API_KEY: ''
       GEMINI_API_KEY: ''
+      # Pilha de testes sem internet: não busca a cotação do Banco Central.
+      FX_SCHEDULE: 'off'
 
   # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
   tests:

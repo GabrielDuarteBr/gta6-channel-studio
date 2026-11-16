@@ -58,6 +58,10 @@ describe('orçamento', () => {
       BudgetExceededError,
     );
     expect(() => assertWithinBudget({ ...okBudget, spentMonthUsd: 50 })).toThrow(/mensal/);
+    // com a cotação, a mensagem sai em reais
+    expect(() => assertWithinBudget({ ...okBudget, spentTodayUsd: 1.6, brlPerUsd: 6 })).toThrow(
+      'Teto diário de R$ 9,60 atingido (gasto: R$ 9,60).',
+    );
   });
 });
 

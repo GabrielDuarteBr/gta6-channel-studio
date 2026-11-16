@@ -81,3 +81,25 @@ test('sair encerra a sessão', async ({ browser }) => {
   await expect(page).toHaveURL(/\/login/);
   await ctx.close();
 });
+
+test('valores em reais: teto em R$, cotação do dólar e Visão geral', async ({ page }) => {
+  await page.goto('/configuracoes');
+  const budget = page.getByTestId('form-budget');
+  await expect(budget.getByLabel('Teto diário (R$)')).toHaveValue('5');
+  await expect(budget.getByLabel('Teto mensal (R$)')).toHaveValue('150');
+  const currency = page.getByTestId('form-currency');
+  await expect(currency.getByLabel('Fonte')).toHaveValue('bcb');
+  await expect(currency.getByLabel('IOF do cartão (%)')).toHaveValue('3.5');
+  await expect(currency).toContainText('R$ 5,5606');
+  await expect(page.locator('body')).not.toContainText('US$');
+
+  await page.goto('/saude');
+  // Pilha de testes sem internet: ainda sem cotação do Banco Central, usa a de reserva.
+  await expect(page.getByTestId('cotacao')).toContainText('R$ 5,5606');
+  await expect(page.getByTestId('cotacao')).toContainText('reserva');
+  await expect(page.locator('body')).not.toContainText('US$');
+
+  await page.goto('/');
+  await expect(page.getByText('R$ 5,00').first()).toBeVisible();
+  await expect(page.getByText('R$ 150,00').first()).toBeVisible();
+});

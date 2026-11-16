@@ -8,7 +8,7 @@ describe('settings', () => {
     expect(defaultSetting('mode.simulation')).toBe(true);
     expect(defaultSetting('mode.autopilot')).toBe(false);
     expect(defaultSetting('limits.daily')).toEqual({ long: 1, shorts: 4 });
-    expect(defaultSetting('budget')).toEqual({ monthlyUsd: 50, dailyUsd: 1.6 });
+    expect(defaultSetting('budget')).toEqual({ monthlyBrl: 150, dailyBrl: 5 });
     expect(defaultSetting('channel.identity').characterName).toBe('Zeca Neon');
   });
 

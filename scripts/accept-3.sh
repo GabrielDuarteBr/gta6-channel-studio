@@ -6,8 +6,8 @@
 #  3. o mesmo vídeo renderizado 2 vezes tem todos os quadros idênticos
 #  4. o render recusa mídia sem direitos (manifesto revogado)
 #  5. relatório de tempo, CPU e memória por render, com estimativa para a VPS
-#  6. custo por vídeo × orçamento de US$ 50: com REAL=1, produz 1 Short e 1 longo de verdade
-#     (Claude, imagens e voz do Google; custa ~US$ 1 e respeita o teto); sem REAL=1, estimativa
+#  6. custo por vídeo × orçamento (em reais): com REAL=1, produz 1 Short e 1 longo de verdade
+#     (Claude, imagens e voz do Google; custa ~R$ 6 e respeita o teto); sem REAL=1, estimativa
 #  7. testes (unitários, integração e e2e)
 # Vídeos e thumbnails vão para a Área de Trabalho do Windows (radar-neon-fase3-*).
 set -uo pipefail
@@ -131,10 +131,17 @@ PY
     rs=$(produce --formato=SHORT --real); echo "$rs" | grep -v '^{' | tail -12
     rl=$(produce --formato=LONG --real); echo "$rl" | grep -v '^{' | tail -12
     RS=$(last_json "$rs" producao); RL=$(last_json "$rl" producao)
-    cs=$(get "$RS" 'd["producao"]["costUsd"]'); cl=$(get "$RL" 'd["producao"]["costUsd"]')
+    cs=$(get "$RS" 'd["producao"].get("costBrl", 0)'); cl=$(get "$RL" 'd["producao"].get("costBrl", 0)')
     if [[ "$(get "$RS" 'd["producao"]["status"]')" == "READY" && "$(get "$RL" 'd["producao"]["status"]')" == "READY" ]]; then
-      month=$(python3 -c "print(f'{($cl + 4*$cs)*30:.2f}')")
-      pass "Custo real: Short US\$ $cs, longo US\$ $cl → ritmo padrão (1 longo + 4 Shorts/dia) ≈ US\$ $month/mês (teto US\$ 50)"
+      line=$(python3 - "$cs" "$cl" <<'PY'
+import sys
+cs, cl = float(sys.argv[1] or 0), float(sys.argv[2] or 0)
+dia = cl + 4 * cs
+brl = lambda v: ("R$ %.2f" % v).replace(".", ",")
+print(f"Custo real: Short {brl(cs)}, longo {brl(cl)} → ritmo padrão (1 longo + 4 Shorts/dia) ≈ {brl(dia)}/dia, {brl(dia * 30)}/mês")
+PY
+)
+      pass "$line"
       copy_out "$(get "$RS" 'd["producao"]["video"]')" radar-neon-fase3-short-REAL.mp4
       copy_out "$(get "$RL" 'd["producao"]["video"]')" radar-neon-fase3-longo-REAL.mp4
       copy_out "$(get "$RL" 'd["producao"]["thumbnail"]')" radar-neon-fase3-longo-REAL-thumb.png
@@ -142,7 +149,7 @@ PY
       fail "Produção real não ficou pronta: Short $(get "$RS" 'd["producao"].get("status")') $(get "$RS" 'd["producao"].get("error")') · Longo $(get "$RL" 'd["producao"].get("status")') $(get "$RL" 'd["producao"].get("error")')"
     fi
   else
-    info "Custo real não medido (rode com REAL=1). Estimativa pela tabela: Short ≈ US\$ 0,10, longo ≈ US\$ 0,35 → ≈ US\$ 22/mês no ritmo padrão (Imagen 4 Fast, Sonnet 5.5, voz na cota grátis)"
+    info "Custo real não medido (rode com REAL=1). Estimativa pela tabela: Short ≈ R\$ 0,60, longo ≈ R\$ 2,10 → ≈ R\$ 4,50/dia (R\$ 135/mês) no ritmo padrão (Imagen 4 Fast, Sonnet 5.5, voz na cota grátis)"
   fi
 
   step "7. Testes"

@@ -1,4 +1,4 @@
-import { getAllSettings, getPrisma } from '@studio/db';
+import { currentFx, getAllSettings, getPrisma } from '@studio/db';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
@@ -18,9 +18,10 @@ const pill =
   'rounded-full border border-night-600 px-3 py-1 text-xs text-haze-300 hover:bg-night-800';
 
 export default async function ArtPage() {
-  const [{ assets, paidImages, paidUsd }, settings] = await Promise.all([
+  const [{ assets, paidImages, paidUsd }, settings, fx] = await Promise.all([
     listGenerated(),
     getAllSettings(getPrisma()),
+    currentFx(getPrisma()),
   ]);
   const images = settings.images;
   const simulated = settings['mode.simulation'] || images.provider === 'fake';
@@ -39,8 +40,8 @@ export default async function ArtPage() {
       <Card>
         <CardTitle>Provedor e custo</CardTitle>
         <CardDescription>
-          {paidImages} imagem(ns) paga(s), US$ {paidUsd.toFixed(2)} no total. Modelo e guia de
-          estilo em{' '}
+          {paidImages} imagem(ns) paga(s), {fx.formatUsd(paidUsd)} no total. Modelo e guia de estilo
+          em{' '}
           <Link href="/configuracoes" className="text-neon-cyan hover:underline">
             Configurações → Imagens geradas
           </Link>

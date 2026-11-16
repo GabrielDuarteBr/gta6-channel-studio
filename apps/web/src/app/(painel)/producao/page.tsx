@@ -1,4 +1,4 @@
-import { getAllSettings, getPrisma } from '@studio/db';
+import { currentFx, getAllSettings, getPrisma } from '@studio/db';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,6 @@ const fmt = new Intl.DateTimeFormat('pt-BR', {
   timeStyle: 'short',
   timeZone: 'America/Sao_Paulo',
 });
-const usd = (n: number) => `US$ ${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'error' | 'info' | 'muted' }> =
   {
@@ -60,12 +59,13 @@ const media = (p: string) => `/api/media/${p}`;
 
 export default async function ProductionPage() {
   const prisma = getPrisma();
-  const [stories, productions, settings, longToday, shortsToday] = await Promise.all([
+  const [stories, productions, settings, longToday, shortsToday, fx] = await Promise.all([
     queuedStories(),
     listProductions(),
     getAllSettings(prisma),
     startedToday('LONG'),
     startedToday('SHORT'),
+    currentFx(prisma),
   ]);
   const itemIds = productions.flatMap((p) =>
     ((p.script as { lines?: ScriptLine[] } | null)?.lines ?? []).flatMap((l) => l.sourceIds),
@@ -165,7 +165,7 @@ export default async function ProductionPage() {
                   <Badge tone="muted">{p.format === 'SHORT' ? 'Short 9:16' : 'Longo 16:9'}</Badge>
                   {p.story.isRumor ? <Badge tone="warn">rumor</Badge> : null}
                   <span className="text-xs text-haze-500">
-                    {fmt.format(p.createdAt)} · custo {usd(p.costUsd)}
+                    {fmt.format(p.createdAt)} · custo {fx.formatUsd(p.costUsd)}
                     {p.reviewRound ? ` · ${p.reviewRound} volta(s) de revisão` : ''}
                   </span>
                 </div>

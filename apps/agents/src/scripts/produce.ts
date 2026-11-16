@@ -11,11 +11,24 @@
  *                              é recusado (regra 1/2, 3ª camada)
  * Não passa pelo limite diário (é teste do dono, nada é publicado). A última linha é um JSON.
  */
-import { audit, getAllSettings, getPrisma, type Prisma, type ProductionFormat } from '@studio/db';
+import {
+  audit,
+  currentFx,
+  getAllSettings,
+  getPrisma,
+  type Prisma,
+  type ProductionFormat,
+} from '@studio/db';
 import { canPromoteStory, type ContentFlags } from '@studio/policy';
 import type { VideoPlan } from '@studio/production';
 import { createQueue, redisConnection } from '@studio/queue';
-import { parseEnv, redisEnvSchema, s3EnvSchema, serviceUrlsEnvSchema } from '@studio/shared';
+import {
+  formatBrl,
+  parseEnv,
+  redisEnvSchema,
+  s3EnvSchema,
+  serviceUrlsEnvSchema,
+} from '@studio/shared';
 import { MediaService, RenderService } from '../character/services';
 import { productionJobId } from '../production/job';
 import { PRODUCTION_JOB } from '../production/pipeline';
@@ -113,6 +126,7 @@ async function produce(storyId: string, format: ProductionFormat, real: boolean)
     review: reviews.at(-1) ?? null,
     renderReport: done.renderReport,
     costUsd: Number(cost._sum.costUsd ?? 0),
+    costBrl: Number((await currentFx(prisma)).usdToBrl(Number(cost._sum.costUsd ?? 0)).toFixed(4)),
   };
 }
 
@@ -224,7 +238,7 @@ try {
     const result = await produce(await pickStory(), format, flag('real'));
     console.log(
       result.status === 'READY'
-        ? `Pronto: ${result.video} (${result.rounds} volta(s) de revisão, US$ ${result.costUsd.toFixed(3)})`
+        ? `Pronto: ${result.video} (${result.rounds} volta(s) de revisão, ${formatBrl(result.costBrl)})`
         : `Terminou como ${result.status}: ${result.error ?? ''}`,
     );
     console.log(JSON.stringify({ producao: result }));

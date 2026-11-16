@@ -52,11 +52,22 @@ export class LlmOutputError extends Error {
   override name = 'LlmOutputError';
 }
 
+/**
+ * Gastos e tetos em dólar (a moeda das APIs). O teto é configurado em reais e convertido pela
+ * cotação efetiva (`brlPerUsd`), que também deixa as mensagens em R$.
+ */
 export interface BudgetStatus {
   spentTodayUsd: number;
   spentMonthUsd: number;
   dailyLimitUsd: number;
   monthlyLimitUsd: number;
+  /** Reais por dólar com spread e IOF; sem ele, as mensagens saem em US$. */
+  brlPerUsd?: number;
+}
+
+function money(usd: number, brlPerUsd?: number): string {
+  if (!brlPerUsd) return `US$ ${usd.toFixed(2)}`;
+  return `R$ ${(usd * brlPerUsd).toFixed(2).replace('.', ',')}`;
 }
 
 export interface LlmDeps {
@@ -75,12 +86,12 @@ export interface LlmDeps {
 export function assertWithinBudget(b: BudgetStatus): void {
   if (b.spentMonthUsd >= b.monthlyLimitUsd) {
     throw new BudgetExceededError(
-      `Teto mensal de US$ ${b.monthlyLimitUsd.toFixed(2)} atingido (gasto: ${b.spentMonthUsd.toFixed(2)}).`,
+      `Teto mensal de ${money(b.monthlyLimitUsd, b.brlPerUsd)} atingido (gasto: ${money(b.spentMonthUsd, b.brlPerUsd)}).`,
     );
   }
   if (b.spentTodayUsd >= b.dailyLimitUsd) {
     throw new BudgetExceededError(
-      `Teto diário de US$ ${b.dailyLimitUsd.toFixed(2)} atingido (gasto: ${b.spentTodayUsd.toFixed(2)}).`,
+      `Teto diário de ${money(b.dailyLimitUsd, b.brlPerUsd)} atingido (gasto: ${money(b.spentTodayUsd, b.brlPerUsd)}).`,
     );
   }
 }

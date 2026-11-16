@@ -4,3 +4,4 @@ export * from './logger';
 export * from './profile';
 export * from './settings';
 export * from './time';
+export * from './money';

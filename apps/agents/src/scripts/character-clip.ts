@@ -5,7 +5,7 @@
  * --duas-vezes renderiza o mesmo clipe duas vezes e compara o hash de cada quadro.
  * A última linha é um JSON {"resumo": {...}} lido pelo scripts/accept-2.sh.
  */
-import { getPrisma } from '@studio/db';
+import { currentFx, getPrisma } from '@studio/db';
 import { createQueue, redisConnection } from '@studio/queue';
 import { parseEnv, redisEnvSchema, serviceUrlsEnvSchema } from '@studio/shared';
 import { CLIP_JOB, type ClipResult } from '../character/clip';
@@ -54,7 +54,7 @@ try {
     `\nVídeo: ${first.video} · ${first.durationSec.toFixed(1)} s · ${first.render.width}x${first.render.height} · render em ${first.render.seconds} s`,
   );
   console.log(
-    `Expressões: ${first.expressions.join(', ')} · gestos: ${first.gestures.join(', ') || '—'} · bocas: ${first.mouthShapes.join('')} (${first.mouthCues} trocas) · voz: ${first.ttsProvider} (US$ ${first.ttsCostUsd.toFixed(4)})`,
+    `Expressões: ${first.expressions.join(', ')} · gestos: ${first.gestures.join(', ') || '—'} · bocas: ${first.mouthShapes.join('')} (${first.mouthCues} trocas) · voz: ${first.ttsProvider} (${(await currentFx(prisma)).formatUsd(first.ttsCostUsd)})`,
   );
   let identical: boolean | null = null;
   let frames = 0;
