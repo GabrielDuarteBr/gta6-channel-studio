@@ -123,6 +123,8 @@ export function PermissionForm({
   const [state, action, pending] = useActionState(permissionAction, {});
   const today = new Date().toISOString().slice(0, 10);
   const p = (n: string) => `${partnerId}-${n}`;
+  // Recusado? O formulário volta com o que foi digitado (o React limpa o formulário depois do envio).
+  const v = state.values ?? {};
   return (
     <form action={action} className="space-y-3" data-testid="form-permissao">
       <input type="hidden" name="partnerId" value={partnerId} />
@@ -134,7 +136,7 @@ export function PermissionForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={p('kind')}>Como ele autorizou</Label>
-          <Select id={p('kind')} name="proofKind" defaultValue="EMAIL">
+          <Select id={p('kind')} name="proofKind" defaultValue={v.proofKind || 'EMAIL'}>
             <option value="EMAIL">E-mail</option>
             <option value="DIRECT_MESSAGE">
               Mensagem direta (Instagram, Discord, WhatsApp...)
@@ -145,7 +147,13 @@ export function PermissionForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('granted')}>Data da autorização</Label>
-          <Input id={p('granted')} name="grantedAt" type="date" defaultValue={today} required />
+          <Input
+            id={p('granted')}
+            name="grantedAt"
+            type="date"
+            defaultValue={v.grantedAt || today}
+            required
+          />
         </div>
       </div>
       <div className="space-y-1.5">
@@ -155,6 +163,7 @@ export function PermissionForm({
           name="proof"
           rows={3}
           required
+          defaultValue={v.proof ?? ''}
           className="w-full rounded-lg border border-night-600 bg-night-900 p-2 text-sm text-white"
           placeholder='Ex.: E-mail de fulano@... em 10/11: "Autorizo o Radar Neon a usar cortes dos meus vídeos em Shorts de react, com crédito e link."'
         />
@@ -171,38 +180,55 @@ export function PermissionForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={p('credit')}>Crédito (na tela e na descrição)</Label>
-          <Input id={p('credit')} name="credit" required defaultValue={defaultCredit} />
+          <Input id={p('credit')} name="credit" required defaultValue={v.credit ?? defaultCredit} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('link')}>Link do parceiro na descrição</Label>
-          <Input id={p('link')} name="link" type="url" defaultValue={defaultLink} />
+          <Input id={p('link')} name="link" type="url" defaultValue={v.link ?? defaultLink} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('hashtag')}>Hashtag pedida (opcional)</Label>
-          <Input id={p('hashtag')} name="hashtag" placeholder="#canaldofulano" />
+          <Input
+            id={p('hashtag')}
+            name="hashtag"
+            placeholder="#canaldofulano"
+            defaultValue={v.hashtag ?? ''}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('money')}>Monetização</Label>
-          <Select id={p('money')} name="monetization" defaultValue="allowed">
+          <Select id={p('money')} name="monetization" defaultValue={v.monetization || 'allowed'}>
             <option value="allowed">Pode monetizar</option>
             <option value="not_allowed">Não pode monetizar</option>
           </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('max')}>Teto de clipe por Short (s, opcional)</Label>
-          <Input id={p('max')} name="maxClipSec" type="number" min={3} max={60} />
+          <Input
+            id={p('max')}
+            name="maxClipSec"
+            type="number"
+            min={3}
+            max={60}
+            defaultValue={v.maxClipSec ?? ''}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={p('exp')}>Válida até (opcional)</Label>
-          <Input id={p('exp')} name="expiresAt" type="date" />
+          <Input id={p('exp')} name="expiresAt" type="date" defaultValue={v.expiresAt ?? ''} />
         </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={p('notes')}>Outras condições combinadas (opcional)</Label>
-        <Input id={p('notes')} name="notes" maxLength={500} />
+        <Input id={p('notes')} name="notes" maxLength={500} defaultValue={v.notes ?? ''} />
       </div>
       <label className="flex items-start gap-2 text-sm text-haze-200">
-        <input type="checkbox" name="explicit" className="mt-1" />
+        <input
+          type="checkbox"
+          name="explicit"
+          className="mt-1"
+          defaultChecked={v.explicit === 'on'}
+        />
         Confirmo que o criador autorizou o Radar Neon, por escrito, a usar cortes em Shorts de
         react.
       </label>

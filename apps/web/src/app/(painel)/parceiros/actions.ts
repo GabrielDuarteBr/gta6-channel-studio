@@ -20,6 +20,28 @@ export interface PartnerActionState {
   message?: string;
   error?: string;
   affected?: AffectedProduction[];
+  /** Valores enviados (o formulário volta preenchido quando algo é recusado). */
+  values?: Record<string, string>;
+}
+
+const PERMISSION_FIELDS = [
+  'proofKind',
+  'proof',
+  'grantedAt',
+  'expiresAt',
+  'credit',
+  'link',
+  'hashtag',
+  'monetization',
+  'maxClipSec',
+  'notes',
+  'explicit',
+] as const;
+
+function keepValues(form: FormData): Record<string, string> {
+  return Object.fromEntries(
+    PERMISSION_FIELDS.map((k) => [k, String(form.get(k) ?? '').slice(0, 3000)]),
+  );
 }
 
 function explain(err: unknown): string {
@@ -118,7 +140,9 @@ export async function permissionAction(
     notes: form.get('notes') ?? '',
     explicit: form.get('explicit') === 'on',
   });
-  if (!p.success) return { error: p.error.issues[0]?.message ?? 'Confira os campos.' };
+  if (!p.success) {
+    return { error: p.error.issues[0]?.message ?? 'Confira os campos.', values: keepValues(form) };
+  }
   const file = form.get('proofFile');
   const proofFile =
     file instanceof File && file.size > 0
@@ -143,7 +167,7 @@ export async function permissionAction(
       explicitConfirmation: p.data.explicit,
     });
   } catch (err) {
-    return { error: explain(err) };
+    return { error: explain(err), values: keepValues(form) };
   }
   revalidatePath('/parceiros');
   return { ok: true, message: 'Permissão registrada. Agora dá para importar os arquivos.' };
