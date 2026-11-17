@@ -40,14 +40,16 @@ test('parceiros: candidato com indício e rascunho; frase vaga não vira permiss
       'E-mail de contato@canaldemo.example em 15/11/2026: "Autorizo o Radar Neon a usar cortes dos meus vídeos em Shorts de react, com crédito e link do canal."',
     );
   await form.getByRole('button', { name: 'Registrar permissão' }).click();
-  await expect(form.getByTestId('retorno-permissao')).toContainText('Permissão registrada');
+  // Registrada: o candidato vira parceiro (o cartão sai de Candidatos e aparece em Parceiros),
+  // com as condições digitadas antes da recusa (o formulário voltou preenchido).
+  const partner = page.getByTestId('parceiro').filter({ hasText: 'Canal Demo GTA' });
+  await expect(partner.getByTestId('status-permissao')).toHaveText('permissão ativa', {
+    timeout: 15_000,
+  });
+  await expect(partner.getByTestId('permissao')).toContainText('#canaldemo');
   await page.reload();
-  await expect(
-    page
-      .getByTestId('parceiro')
-      .filter({ hasText: 'Canal Demo GTA' })
-      .getByTestId('status-permissao'),
-  ).toHaveText('permissão ativa');
+  await expect(partner.getByTestId('status-permissao')).toHaveText('permissão ativa');
+  await expect(page.getByTestId('candidato').filter({ hasText: 'Canal Demo GTA' })).toHaveCount(0);
 });
 
 test('parceiros: link do YouTube é recusado e o vídeo enviado vira transcrição', async ({
