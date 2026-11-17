@@ -72,6 +72,14 @@ const bootedAt = new Date();
 async function main(): Promise<void> {
   const interrupted = await markInterruptedJobs(prisma, bootedAt);
   if (interrupted > 0) log.warn({ interrupted }, 'jobs interrompidos no último desligamento');
+  // Resposta do Comando cortada pelo desligamento: libera o chat (o dono pergunta de novo).
+  await prisma.chatMessage.updateMany({
+    where: { role: 'assistant', state: 'escrevendo', createdAt: { lt: bootedAt } },
+    data: {
+      state: 'erro',
+      text: '⚠ resposta interrompida (o estúdio reiniciou). Pergunte de novo.',
+    },
+  });
   await audit(prisma, {
     actor: 'system',
     action: 'service.start',
