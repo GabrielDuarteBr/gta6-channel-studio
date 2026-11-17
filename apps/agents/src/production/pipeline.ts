@@ -55,6 +55,8 @@ export interface ProductionContext {
   now?: () => Date;
   /** Pasta de trabalho (testes usam uma temporária). */
   workRoot?: string;
+  /** Vídeo pronto: pede a Conformidade (Fase 5). */
+  onReady?: (productionId: string) => Promise<void>;
   /** Para testes. */
   media?: MediaService;
   render?: RenderService;
@@ -464,6 +466,9 @@ export async function runProduction(
         outputs: json(outputs),
         finishedAt: ctx.now?.() ?? new Date(),
       });
+      await ctx
+        .onReady?.(prod.id)
+        .catch((err: unknown) => log.warn({ err }, 'Conformidade não enfileirada'));
       break;
     }
     if (round >= settings.production.maxReviewRounds) {

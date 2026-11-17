@@ -35,6 +35,11 @@ export async function GET(
     return new Response('arquivo indisponível', { status: upstream?.status ?? 502 });
   }
   const headers = new Headers({ 'cache-control': 'private, max-age=300' });
+  // Pacote manual: ?baixar=nome.ext salva o arquivo em vez de tocar no navegador.
+  const download = new URL(req.url).searchParams.get('baixar');
+  if (download && /^[A-Za-z0-9_.-]{1,60}\.(mp4|png)$/.test(download)) {
+    headers.set('content-disposition', `attachment; filename="${download}"`);
+  }
   for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
     const v = upstream.headers.get(h);
     if (v) headers.set(h, v);

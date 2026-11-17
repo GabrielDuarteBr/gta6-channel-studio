@@ -1,9 +1,13 @@
-import { currentFx, getPrisma } from '@studio/db';
+import { currentFx, getPrisma, youtubeConnection } from '@studio/db';
 import { formatBrl, formatBrlRate } from '@studio/shared';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Input, Label, Select, Toggle } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { effectiveState } from '@/server/effective';
+import { disconnectYouTubeAction } from './actions';
+import { RunDailyButton, SyncMetricsButton } from './buttons';
 import { SettingForm } from './setting-form';
 
 export const metadata: Metadata = { title: 'Configurações' };
@@ -20,8 +24,19 @@ const CHIRP_SUGGESTIONS = [
   'Alnilam',
 ];
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ youtube?: string; msg?: string }>;
+}) {
   const { env, settings, profileInfo } = await effectiveState();
+  const q = await searchParams;
+  const yt = await youtubeConnection(getPrisma());
+  const hasOAuthClient = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+  );
+  const youtube = settings.youtube;
+  const daily = settings['schedule.daily'];
   const limits = settings['limits.daily'];
   const budget = settings.budget;
   const currency = settings.currency;
@@ -39,9 +54,156 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Configurações"
-        subtitle="Toda alteração fica registrada na auditoria (tela Saúde). Chaves de API e a conexão com o canal entram nas próximas fases."
+        subtitle="Toda alteração fica registrada na auditoria (tela Saúde). Chaves de API ficam só no .env; o acesso ao canal é pelo login do Google (OAuth), nunca pela senha."
       />
+      <Card id="youtube" className="mb-4" data-testid="cartao-youtube">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle>Canal do YouTube</CardTitle>
+            <CardDescription>
+              Conecte com a conta do canal na tela do Google. Permissões: enviar vídeos (sempre
+              privados e agendados), ler o canal e as estatísticas. O token fica cifrado no banco.
+            </CardDescription>
+          </div>
+          {yt?.status === 'ok' ? (
+            <Badge tone="ok" data-testid="youtube-status">
+              Conectado: {yt.channelTitle}
+            </Badge>
+          ) : yt ? (
+            <Badge tone="error" data-testid="youtube-status">
+              Conexão inválida: conecte de novo
+            </Badge>
+          ) : (
+            <Badge tone="muted" data-testid="youtube-status">
+              Não conectado
+            </Badge>
+          )}
+        </div>
+        {q.youtube === 'ok' ? (
+          <p role="status" className="mt-3 text-sm text-palm">
+            Canal conectado: {q.msg}
+          </p>
+        ) : null}
+        {q.youtube === 'erro' ? (
+          <p role="alert" className="mt-3 text-sm text-alert">
+            Não conectou: {q.msg}
+          </p>
+        ) : null}
+        {q.youtube === 'sem-chaves' || !hasOAuthClient ? (
+          <p className="mt-3 text-sm text-sunset">
+            Falta o cliente OAuth no .env (GOOGLE_OAUTH_CLIENT_ID e GOOGLE_OAUTH_CLIENT_SECRET).
+            Siga a seção 13 de docs/notebook-setup.md. Sem conexão, aprovar gera um pacote para
+            enviar pelo YouTube Studio.
+          </p>
+        ) : null}
+        {yt?.lastError ? <p className="mt-2 text-xs text-alert">{yt.lastError}</p> : null}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {hasOAuthClient ? (
+            <Button asChild size="sm">
+              {/* Link (GET): o formulário seria barrado pelo form-action da CSP no redirecionamento ao Google. */}
+              <a href="/api/youtube/connect" data-testid="conectar-youtube">
+                {yt ? 'Conectar de novo' : 'Conectar YouTube'}
+              </a>
+            </Button>
+          ) : null}
+          {yt ? (
+            <form action={disconnectYouTubeAction}>
+              <Button type="submit" size="sm" variant="ghost">
+                Desconectar
+              </Button>
+            </form>
+          ) : null}
+          {yt?.status === 'ok' ? <SyncMetricsButton /> : null}
+        </div>
+      </Card>
       <div className="grid gap-4 lg:grid-cols-2">
+        <SettingForm
+          settingKey="schedule.daily"
+          title="Produção diária"
+          description="No horário marcado (Brasília), o estúdio escolhe as melhores histórias que podem virar vídeo e um vídeo de parceiro novo, dentro dos limites do dia e do teto de gasto. Tudo vai para a Aprovação. Se o notebook estiver dormindo, roda quando ele acordar."
+        >
+          <Toggle
+            name="enabled"
+            defaultChecked={daily.enabled}
+            label="Produzir todo dia"
+            description="Com o modo simulado desligado, gasta as APIs: cerca de 1 longo + 4 Shorts por dia nos limites padrão."
+          />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="daily-time">Horário</Label>
+              <Input id="daily-time" name="time" type="time" defaultValue={daily.time} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="daily-long">Longos</Label>
+              <Input
+                id="daily-long"
+                name="long"
+                type="number"
+                min={0}
+                max={5}
+                defaultValue={daily.long}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="daily-news">Shorts de notícia</Label>
+              <Input
+                id="daily-news"
+                name="newsShorts"
+                type="number"
+                min={0}
+                max={10}
+                defaultValue={daily.newsShorts}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="daily-reacts">Reacts</Label>
+              <Input
+                id="daily-reacts"
+                name="reacts"
+                type="number"
+                min={0}
+                max={5}
+                defaultValue={daily.reacts}
+              />
+            </div>
+          </div>
+          <RunDailyButton />
+        </SettingForm>
+
+        <SettingForm
+          settingKey="youtube"
+          title="Publicação no YouTube"
+          description="Horários sugeridos na Aprovação (Brasília), tags padrão e categoria. Todo envio é privado e agendado, com a marca de conteúdo sintético."
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="yt-times">Horários (separados por vírgula)</Label>
+            <Input
+              id="yt-times"
+              name="publishTimes"
+              defaultValue={youtube.publishTimes.join(', ')}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="yt-tags">Tags padrão</Label>
+            <Input id="yt-tags" name="defaultTags" defaultValue={youtube.defaultTags.join(', ')} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="yt-cat">Categoria (20 = Jogos)</Label>
+            <Input
+              id="yt-cat"
+              name="categoryId"
+              defaultValue={youtube.categoryId}
+              className="max-w-24"
+            />
+          </div>
+          <Toggle
+            name="notifySubscribers"
+            defaultChecked={youtube.notifySubscribers}
+            label="Avisar inscritos"
+            description="Notificação quando o vídeo for ao ar."
+          />
+        </SettingForm>
+
         <SettingForm
           settingKey="mode.simulation"
           title="Modo simulado"
@@ -626,15 +788,26 @@ export default async function SettingsPage() {
         <SettingForm
           settingKey="mode.autopilot"
           title="Piloto automático"
-          description="Publica sem esperar sua aprovação, mas sempre passando pela Conformidade e pelo Revisor visual. Disponível na Fase 7."
+          description="Com ele ligado, vídeo aprovado pela Conformidade (e pelo Revisor visual) entra na fila de envio sozinho, no próximo horário livre — sempre privado e agendado. Desligado, tudo espera você na Aprovação. Para LIGAR, digite o código do app autenticador."
         >
           <Toggle
             name="enabled"
-            defaultChecked={false}
-            disabled
+            defaultChecked={settings['mode.autopilot']}
             label="Piloto automático"
-            description="Desligado (Fase 7)"
+            description={settings['mode.autopilot'] ? 'Ligado' : 'Desligado (recomendado)'}
+            data-testid="toggle-piloto"
           />
+          <div className="space-y-1.5">
+            <Label htmlFor="autopilot-code">Código do app autenticador (só para ligar)</Label>
+            <Input
+              id="autopilot-code"
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              className="max-w-32"
+            />
+          </div>
         </SettingForm>
       </div>
     </>

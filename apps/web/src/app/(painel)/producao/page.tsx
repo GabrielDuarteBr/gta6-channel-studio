@@ -1,5 +1,6 @@
 import { currentFx, getAllSettings, getPrisma } from '@studio/db';
 import type { Metadata } from 'next';
+import { LiveRefresh } from '@/components/live-refresh';
 import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { listProductions, queuedStories, startedToday } from '@/server/production';
@@ -65,6 +66,48 @@ interface ScriptLine {
 
 const media = (p: string) => `/api/media/${p}`;
 
+/** Colunas do kanban: Ideia → Roteiro → Arte → Voz → Render → Revisão → Conformidade → Aprovação → Publicado. */
+const KANBAN = [
+  { id: 'fila', label: 'Na fila' },
+  { id: 'roteiro', label: 'Roteiro' },
+  { id: 'arte', label: 'Arte/cortes' },
+  { id: 'voz', label: 'Voz' },
+  { id: 'render', label: 'Render' },
+  { id: 'revisao', label: 'Revisão' },
+  { id: 'conformidade', label: 'Conformidade' },
+  { id: 'aprovacao', label: 'Aprovação' },
+  { id: 'agendado', label: 'Agendado/publicado' },
+] as const;
+
+function columnOf(p: {
+  status: string;
+  compliance: unknown;
+  publication: { status: string } | null;
+}): string | null {
+  switch (p.status) {
+    case 'QUEUED':
+      return 'fila';
+    case 'SCRIPTING':
+      return 'roteiro';
+    case 'ART':
+      return 'arte';
+    case 'VOICE':
+      return 'voz';
+    case 'RENDERING':
+      return 'render';
+    case 'REVIEWING':
+      return 'revisao';
+    case 'READY': {
+      const pub = p.publication?.status;
+      if (pub && !['CANCELED', 'FAILED'].includes(pub)) return 'agendado';
+      const report = p.compliance as { ok?: boolean } | null;
+      return report?.ok ? 'aprovacao' : 'conformidade';
+    }
+    default:
+      return null;
+  }
+}
+
 export default async function ProductionPage() {
   const prisma = getPrisma();
   const [stories, productions, settings, longToday, shortsToday, fx] = await Promise.all([
@@ -91,13 +134,49 @@ export default async function ProductionPage() {
         title="Produção"
         subtitle="Da Pauta ao vídeo: roteiro (Claude), imagens, voz do Zeca, render do longo 16:9 ou Short 9:16, 3 thumbnails e Revisor visual. Nada é publicado daqui."
         actions={
-          settings['mode.simulation'] ? (
-            <Badge tone="warn">Modo simulado: roteiro, imagens e voz de teste</Badge>
-          ) : (
-            <Badge tone="info">Modo real (custa)</Badge>
-          )
+          <div className="flex items-center gap-3">
+            <LiveRefresh src="/api/production/stream" />
+            {settings['mode.simulation'] ? (
+              <Badge tone="warn">Modo simulado: roteiro, imagens e voz de teste</Badge>
+            ) : (
+              <Badge tone="info">Modo real (custa)</Badge>
+            )}
+          </div>
         }
       />
+
+      <Card className="mb-4">
+        <CardTitle>Esteira</CardTitle>
+        <div
+          className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9"
+          data-testid="kanban"
+        >
+          {KANBAN.map((col) => {
+            const items = productions.filter((p) => columnOf(p) === col.id);
+            return (
+              <div
+                key={col.id}
+                className="rounded-lg border border-night-700 p-2"
+                data-testid={`coluna-${col.id}`}
+              >
+                <p className="flex items-center justify-between text-xs font-semibold text-haze-300">
+                  {col.label} <span className="text-haze-500">{items.length}</span>
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {items.slice(0, 4).map((p) => (
+                    <li
+                      key={p.id}
+                      className="line-clamp-2 rounded bg-night-800 px-1.5 py-1 text-[11px] text-haze-200"
+                    >
+                      {p.title ?? 'vídeo'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       <Card>
         <div className="flex flex-wrap items-baseline justify-between gap-2">

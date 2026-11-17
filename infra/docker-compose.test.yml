@@ -24,6 +24,11 @@ services:
       # Pilha de testes sem internet: não busca a cotação do Banco Central nem caça parceiros.
       FX_SCHEDULE: 'off'
       PARTNER_HUNT_SCHEDULE: 'off'
+      # Sem produção diária nem métricas automáticas (o e2e usa o botão "rodar agora").
+      DAILY_SCHEDULE: 'off'
+      METRICS_SCHEDULE: 'off'
+      GOOGLE_OAUTH_CLIENT_ID: ''
+      GOOGLE_OAUTH_CLIENT_SECRET: ''
 
   # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
   tests:

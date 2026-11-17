@@ -27,6 +27,7 @@ const config: NextConfig = {
     '@studio/avatar',
     '@studio/storage',
     '@studio/production',
+    '@studio/providers',
   ],
   serverExternalPackages: ['@node-rs/argon2', 'pino', 'ioredis', 'bullmq', '@aws-sdk/client-s3'],
   experimental: {

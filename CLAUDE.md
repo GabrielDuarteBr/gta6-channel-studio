@@ -148,6 +148,28 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   tamanho dos clipes → `buildReactPlan` → 3ª camada (permissão, manifesto, regra 3, condições na
   descrição) → `ReactShort` (layouts tv/split/cinema em rodízio; `Freeze` + `OffthreadVideo`) →
   Revisor. Nomes dos jobs em `@studio/queue` (`PARTNER_IMPORT_JOB`, `ANALYZE_JOB`, `HUNT_JOB`).
+- **Publicação, métricas e Comando (Fases 5–7)**: vídeo READY → `onReady` → job `publish.compliance`
+  (fila `llm`, `apps/agents/src/publish/compliance.ts`): monta `Production.metadata` (descrição com
+  "Fontes:", créditos, `AI_NOTICE`, hashtags; o que o dono edita fica com `editedByOwner`), roda
+  `checkCompliance` (`packages/policy/src/compliance.ts`) + revisão de título com Haiku → `Production.compliance`.
+  Aprovação no painel (`apps/web/src/server/publish.ts`) cria `Publication` (privado + `publishAt`,
+  limite diário por dia de publicação): `mode=api` com o YouTube conectado ou no modo simulado,
+  senão `MANUAL` (pacote: vídeo, thumbnail, .txt em `/api/publish/<id>/pacote`). Envio: job
+  `publish.upload` (fila `upload`, `publish/upload.ts`): 3ª camada (Conformidade ok, direitos de
+  cada mídia, data futura), resumable com `uploadUri` salvo (retoma após reinício), thumbnail só no
+  longo; simulado = `SIMULADO-…` sem rede. YouTube em `packages/providers/src/youtube.ts`
+  (`insertBody` força private + `containsSyntheticMedia`), OAuth web (`/api/youtube/connect` com
+  state em cookie → `/api/youtube/callback`; redirect `${AUTH_URL}/api/youtube/callback`), token
+  cifrado em `OAuthToken` (`packages/db/src/youtube-token.ts`); `GOOGLE_OAUTH_CLIENT_ID/SECRET` só no
+  `.env` (web e agents). Sem auditoria do Google os envios ficam privados (o painel avisa).
+  Métricas: `metrics.sync` (fila `system`, a cada 3 h) → `ChannelStat`/`VideoStat`. Produção diária:
+  `pauta.daily` disparado pelo batimento de 5 min quando passa de `schedule.daily.time` (Brasília) e
+  ainda não rodou hoje (`ranToday` pela auditoria); "Rodar agora" = `{force:true}`. Comando:
+  `chat.turn` (fila `llm`, `apps/agents/src/command/chat.ts`): Sonnet 5.5 com ferramentas fechadas
+  (`Llm.toolChat`, laço manual em streaming, `fallbacks: 'default'`), resposta escrita aos poucos em
+  `ChatMessage` e lida pelo painel via SSE (`/api/command/stream`); publicar só cria `PendingAction`
+  que o dono confirma. Piloto automático (`mode.autopilot`) só liga com código TOTP
+  (`verifyOwnerTotp`). Produção ao vivo: SSE `/api/production/stream` + `LiveRefresh`.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -173,6 +195,8 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make imagens` | modelos de imagem da chave Gemini (`COMPARAR=1` gera o comparativo, pago) |
 | `make accept-3` | aceite da Fase 3 (Short + longo + thumbnails + Revisor, render repetível, direitos; `REAL=1` mede custo) |
 | `make parceiros` | roda o Caçador de parceiros agora (precisa da `YOUTUBE_API_KEY`; só rascunha) |
+| `make accept-5` | aceite da etapa final (Short → Conformidade → aprovação → envio simulado, bloqueio, Comando, diária, YouTube; `ENVIAR=1` faz um envio real privado de teste) |
+| `make publicar` | confere a conexão com o YouTube e sincroniza as métricas (só leitura) |
 | `make accept-4` | aceite da Fase 4 (parceiro de teste + arquivo → react dentro dos limites, render repetível, bloqueios; `REAL=1` mede custo) |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
 | `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
@@ -183,7 +207,8 @@ Desenvolvimento com Node local (opcional): `pnpm install`, `pnpm lint`, `pnpm tu
 test`. Testes de integração precisam de `TEST_DATABASE_URL` e `TEST_REDIS_URL` (cada pacote usa o
 banco `<nome>_<pacote>`, criado pelo global-setup, porque o Turbo roda os pacotes em paralelo). O e2e
 usa dados de demonstração (`apps/agents/src/scripts/seed-demo-pauta.ts`, só com `DEMO_SEED=1`) e a
-pilha de testes roda com `RESEARCH_SCHEDULE=off`, `FX_SCHEDULE=off` e `PARTNER_HUNT_SCHEDULE=off` (sem rede real).
+pilha de testes roda com `RESEARCH_SCHEDULE=off`, `FX_SCHEDULE=off`, `PARTNER_HUNT_SCHEDULE=off`,
+`DAILY_SCHEDULE=off` e `METRICS_SCHEDULE=off` (sem rede real).
 `pnpm --filter @studio/db migrate:dev --name <nome>` cria migration (depois rode `pnpm db:generate`;
 o Prisma 7 não gera o cliente sozinho).
 

@@ -546,6 +546,120 @@ Com custo real (precisa das chaves): `make accept-4 REAL=1`. Caçador agora: `ma
 - **Configurações → Parceiros / Short de react**: Caçador semanal, termos da busca, limites dos
   arquivos, duração-alvo, teto de clipe (nunca acima de 50%) e layouts do rodízio.
 
+## 13. Etapa final: Conformidade, publicação, métricas, Comando e produção diária
+
+A partir daqui o estúdio trabalha sozinho todo dia e **você só aprova**:
+
+- **Produção diária** (Configurações → Produção diária): às 07:41 (Brasília) escolhe as melhores
+  histórias que podem virar vídeo e um vídeo de parceiro novo, até o limite do dia (padrão 1 longo
+  + 4 Shorts, cerca de R$ 4,50 por dia no modo real) e dentro do teto de gasto. Se o notebook estiver
+  dormindo no horário, roda quando ele acordar (uma vez por dia).
+- **Conformidade**: quando um vídeo fica pronto, monta título, descrição (com fontes, créditos e o
+  aviso de IA) e tags e confere as regras: direitos de cada mídia, fontes, rumor, regra do react,
+  condições do parceiro, aviso de IA, Zeca nunca dizendo que é humano, Rockstar, spoiler e limites
+  do YouTube. O Claude Haiku ainda confere se o título é enganoso.
+- **Aprovação**: você assiste, edita título e descrição se quiser e escolhe a data. O vídeo sobe
+  **privado e agendado**, com a marca de conteúdo sintético. Nada fica público sem você.
+- **Calendário**: o que está marcado e o que já foi ao ar.
+- **Comando**: converse com o Diretor (Claude) em português. Ele vê a pauta, põe notícias e reacts
+  na fila, mostra produções, métricas e custos em reais e **prepara** publicações: publicar sempre
+  vira um pedido que você confirma com um clique.
+- **Visão geral**: visualizações por dia, horas assistidas, inscritos, por formato e por parceiro,
+  e o gasto do mês em reais (as métricas sincronizam a cada 3 horas).
+- **Piloto automático** (Configurações): desligado. Se um dia quiser, só liga com o código do app
+  autenticador; mesmo ligado, tudo passa pela Conformidade e pelo Revisor visual e sobe privado e
+  agendado.
+
+### 13.1 Cliente OAuth do Google (navegador do Windows, ~10 min, grátis)
+
+O painel nunca pede a senha do YouTube: você entra com a conta do canal na tela do Google e ele
+guarda só um token cifrado. Para isso o painel precisa de um "cliente OAuth":
+
+1. Abra <https://console.cloud.google.com> no **mesmo projeto** das outras chaves.
+2. **APIs e serviços → Biblioteca**: ative **YouTube Data API v3** (já deve estar ativa) e
+   **YouTube Analytics API**.
+3. **APIs e serviços → Tela de permissão OAuth** (ou "Google Auth Platform"):
+   - tipo de usuário **Externo**; nome do app: `Radar Neon Studio`; seu e-mail de suporte e de
+     contato;
+   - em **Público-alvo**, clique em **Publicar app** (status **Em produção**). Em "teste", o Google
+     derruba a conexão a cada 7 dias.
+4. **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth**:
+   - tipo de aplicativo: **Aplicativo da Web**; nome: `Radar Neon painel`;
+   - **URIs de redirecionamento autorizados**: `http://localhost:3000/api/youtube/callback`
+     (exatamente assim);
+   - clique em **Criar** e copie o **ID do cliente** (termina em `.apps.googleusercontent.com`) e a
+     **Chave secreta do cliente** (começa com `GOCSPX-`).
+5. Rode o `rodar-etapa-final.bat` (ele pede os dois valores sem mostrar na tela) ou ponha no `.env`:
+   `GOOGLE_OAUTH_CLIENT_ID=...` e `GOOGLE_OAUTH_CLIENT_SECRET=...`, depois `make up`.
+6. No painel, **Configurações → Canal do YouTube → Conectar YouTube**. Entre com a conta **do
+   canal** e marque **todas** as permissões. Como o app é seu e não foi verificado pelo Google,
+   aparece "O Google não verificou este app": clique em **Avançado → Acessar Radar Neon Studio**.
+
+Sem o cliente OAuth tudo continua funcionando: aprovar gera um **pacote manual** (vídeo, thumbnail
+e um .txt com título, descrição, tags e lembretes) para você enviar pelo YouTube Studio. Depois de
+enviar, cole o link na Aprovação para as métricas contarem.
+
+### 13.2 Auditoria do Google (para publicar pela API)
+
+O YouTube trava como **privado** todo vídeo enviado pela API por um projeto que ainda não passou
+pela auditoria do Google. Enquanto isso, o estúdio envia privado e agendado e a Aprovação avisa
+quando a hora passou e o vídeo continua privado: publique pelo YouTube Studio (um clique). O texto
+pronto para pedir a auditoria está em [`docs/auditoria-youtube.md`](auditoria-youtube.md). A
+resposta do Google costuma levar semanas.
+
+### Jeito rápido: `windows/rodar-etapa-final.bat` (recomendado)
+
+Dê **dois cliques** no `rodar-etapa-final.bat`. Ele:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop;
+2. troca o projeto para a versão da etapa final (branch `fase-5-canal`);
+3. pede o cliente OAuth (opcional; abre a página de credenciais);
+4. sobe o estúdio e cria o login do painel se ainda não existir;
+5. abre **Configurações** para você clicar em **Conectar YouTube**;
+6. roda o `make accept-5` (de 30 a 60 minutos): Short simulado → Conformidade → aprovação → envio
+   simulado e agendado, bloqueio de vídeo reprovado, Diretor respondendo no Comando, produção
+   diária simulada, conexão com o canal e métricas, e todos os testes. Se você quiser, faz também um
+   **envio real de teste**: um Short **privado**, agendado para daqui a 30 dias (apague depois no
+   YouTube Studio);
+7. põe o resultado na Área de Trabalho (`radar-neon-aceite-etapa-final.txt`);
+8. abre a tela **Aprovação**.
+
+### Pelo Ubuntu (mesmo caminho, à mão)
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin
+```
+
+```bash
+git checkout fase-5-canal
+```
+
+```bash
+make up
+```
+
+```bash
+make accept-5
+```
+
+Envio real de teste (privado, daqui a 30 dias): `make accept-5 ENVIAR=1`. Conferir a conexão e
+sincronizar as métricas: `make publicar`.
+
+### Para deixar rodando todo dia
+
+1. Deixe o modo simulado **desligado** (Configurações) e as chaves no `.env` (Claude, voz do Google,
+   imagens Gemini; YouTube para a pesquisa).
+2. Confira a **Produção diária** (ligada, 07:41) e os **Horários** de publicação (12:00, 18:00,
+   20:30).
+3. Deixe o Docker Desktop abrindo com o Windows (Settings → General → **Start Docker Desktop when
+   you sign in**) e o notebook ligado na tomada. Se ele dormir, o estúdio continua de onde parou
+   quando acordar.
+4. Uma vez por dia, abra **Aprovação**, assista e aprove.
+
 ## Valores em reais
 
 Todo valor do painel e dos relatórios aparece em **reais**. As APIs cobram em dólar; o estúdio
@@ -573,13 +687,15 @@ O **teto de gasto** também é em reais: padrão **R$ 5 por dia** e **R$ 150 por
 | `make vozes` | lista as vozes do Google e gera amostras para ouvir |
 | `make produzir` | produz um vídeo pela fila (`FORMATO=LONG`, `REAL=1` para de verdade) |
 | `make imagens` | modelos de imagem da sua chave (`COMPARAR=1` gera o comparativo) |
+| `make parceiros` | roda o Caçador de parceiros agora (só rascunha mensagens) |
+| `make publicar` | confere a conexão com o YouTube e sincroniza as métricas |
 | `make reset` | **apaga** os dados locais (pede confirmação) |
 
 ## O notebook dormiu ou desligou?
 
 Os containers voltam sozinhos quando o Docker Desktop abre (`restart: unless-stopped`). Os jobs
-interrompidos são retomados sem duplicar (a partir da Fase 1, com o agendador; o aceite completo
-disso é na Fase 7). Se o Docker Desktop não abrir sozinho com o Windows, ative em Settings → General
+interrompidos são retomados sem duplicar, envios ao YouTube continuam do byte em que pararam e a
+produção diária perdida roda uma vez quando o notebook acorda. Se o Docker Desktop não abrir sozinho com o Windows, ative em Settings → General
 → **Start Docker Desktop when you sign in**.
 
 ## Claude Code no notebook (opcional)

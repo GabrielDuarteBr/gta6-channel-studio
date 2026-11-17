@@ -1,9 +1,17 @@
 'use server';
 
-import { getPrisma, setSetting } from '@studio/db';
-import { isSettingKey, type SettingKey } from '@studio/shared';
+import { audit, getPrisma, setSetting, verifyOwnerTotp } from '@studio/db';
+import {
+  encryptionEnvSchema,
+  isSettingKey,
+  loadEncryptionKey,
+  parseEnv,
+  type SettingKey,
+} from '@studio/shared';
 import { revalidatePath } from 'next/cache';
+import { runDailyNow, syncMetricsNow } from '@/server/publish';
 import { requireOwner } from '@/server/session';
+import { disconnectYouTube } from '@/server/youtube';
 
 export interface SaveState {
   ok?: boolean;
@@ -20,8 +28,7 @@ function valueFor(key: SettingKey, form: FormData): unknown {
     case 'mode.simulation':
       return form.get('enabled') === 'on';
     case 'mode.autopilot':
-      // Ligar o piloto automático chega na Fase 7 (com confirmação por 2FA).
-      throw new Error('O piloto automático só pode ser ligado a partir da Fase 7.');
+      return form.get('enabled') === 'on';
     case 'profile.override':
       return String(form.get('profile') ?? 'env');
     case 'limits.daily':
@@ -92,6 +99,28 @@ function valueFor(key: SettingKey, form: FormData): unknown {
         commentatorModel: String(form.get('commentatorModel') ?? ''),
         layouts: form.getAll('layouts').map(String),
       };
+    case 'youtube':
+      return {
+        categoryId: String(form.get('categoryId') ?? '20').trim(),
+        defaultTags: String(form.get('defaultTags') ?? '')
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+        publishTimes: String(form.get('publishTimes') ?? '')
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .sort(),
+        notifySubscribers: form.get('notifySubscribers') === 'on',
+      };
+    case 'schedule.daily':
+      return {
+        enabled: form.get('enabled') === 'on',
+        time: String(form.get('time') ?? '07:41'),
+        long: num(form, 'long'),
+        newsShorts: num(form, 'newsShorts'),
+        reacts: num(form, 'reacts'),
+      };
     case 'channel.identity':
       return {
         channelName: String(form.get('channelName') ?? '').trim(),
@@ -106,7 +135,28 @@ export async function saveSettingAction(_prev: SaveState, form: FormData): Promi
   const key = String(form.get('key') ?? '');
   if (!isSettingKey(key)) return { error: 'Configuração desconhecida.' };
   try {
-    await setSetting(getPrisma(), key, valueFor(key, form), 'owner');
+    const value = valueFor(key, form);
+    // Ligar o piloto automático exige o código do app autenticador (desligar não).
+    if (key === 'mode.autopilot' && value === true) {
+      const owner = await requireOwner();
+      const keyBuf = loadEncryptionKey(parseEnv(encryptionEnvSchema).TOKEN_ENCRYPTION_KEY);
+      const ok = await verifyOwnerTotp(
+        getPrisma(),
+        keyBuf,
+        owner.id,
+        String(form.get('code') ?? ''),
+      );
+      if (!ok) {
+        await audit(getPrisma(), {
+          actor: 'owner',
+          action: 'settings.autopilot',
+          outcome: 'DENIED',
+          details: { reason: 'totp' },
+        });
+        return { error: 'Código do app autenticador inválido.' };
+      }
+    }
+    await setSetting(getPrisma(), key, value, 'owner');
   } catch (err) {
     const message =
       err instanceof Error && err.name === 'ZodError'
@@ -117,5 +167,23 @@ export async function saveSettingAction(_prev: SaveState, form: FormData): Promi
     return { error: message };
   }
   revalidatePath('/', 'layout');
+  return { ok: true, savedAt: Date.now() };
+}
+
+export async function disconnectYouTubeAction(): Promise<void> {
+  await requireOwner();
+  await disconnectYouTube();
+  revalidatePath('/', 'layout');
+}
+
+export async function runDailyNowAction(_p: SaveState): Promise<SaveState> {
+  await requireOwner();
+  await runDailyNow();
+  return { ok: true, savedAt: Date.now() };
+}
+
+export async function syncMetricsNowAction(_p: SaveState): Promise<SaveState> {
+  await requireOwner();
+  await syncMetricsNow();
   return { ok: true, savedAt: Date.now() };
 }

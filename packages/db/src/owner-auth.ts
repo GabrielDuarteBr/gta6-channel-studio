@@ -220,3 +220,33 @@ export async function verifyOwnerLogin(
     usedRecoveryCode,
   };
 }
+
+/**
+ * Confirma uma ação sensível (ligar o piloto automático) com o código do app autenticador do
+ * dono. Mesma regra do login: o mesmo código não vale duas vezes.
+ */
+export async function verifyOwnerTotp(
+  prisma: PrismaClient,
+  key: Buffer,
+  userId: string,
+  code: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const token = code.trim().replace(/\s+/g, '');
+  if (!user || !/^\d{6}$/.test(token)) return false;
+  const secret = decryptSecret(user.totpSecretEnc, key, totpContext(user.email));
+  const result = await verifyTotp({
+    secret,
+    token,
+    epoch: Math.floor(now.getTime() / 1000),
+    epochTolerance: LOGIN_POLICY.totpToleranceSeconds,
+    ...(user.lastTotpStep === null ? {} : { afterTimeStep: user.lastTotpStep }),
+  });
+  if (!result.valid) return false;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastTotpStep: Math.floor(now.getTime() / 1000 / 30) + result.delta },
+  });
+  return true;
+}

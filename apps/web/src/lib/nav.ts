@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 /** Fases já construídas: telas até esta fase funcionam (sem selo de fase no menu). */
-export const BUILT_THROUGH_PHASE = 4;
+export const BUILT_THROUGH_PHASE = 7;
 
 export interface NavItem {
   href: string;

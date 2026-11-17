@@ -458,12 +458,18 @@ model Production {
   /// Tempo, CPU e memória de cada render
   renderReport Json?
   error        String?
+  /// Relatório da Conformidade (bloqueante): { ok, checks[], metadata, reviewedAt }
+  compliance   Json?
+  /// Título, descrição e tags propostos (o dono pode editar na Aprovação)
+  metadata     Json?
+  /// Quem pediu: "owner" | "agent:pauta-diaria" | "owner:chat" ...
   createdBy    String
   startedAt    DateTime?
   finishedAt   DateTime?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   assets       ProductionAsset[]
+  publication  Publication?
 
   @@index([status])
   @@index([storyId])
@@ -624,6 +630,131 @@ model PartnerImport {
   updatedAt    DateTime          @updatedAt
 
   @@index([partnerId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Publicação (Fase 5): sempre privado + agendado; público só depois da aprovação do dono.
+// ---------------------------------------------------------------------------
+
+enum PublicationStatus {
+  /// Aprovado pelo dono, esperando o envio
+  QUEUED
+  UPLOADING
+  /// Enviado como privado com data de publicação (o YouTube publica na hora marcada)
+  SCHEDULED
+  /// Publicado (a hora passou e o YouTube confirmou)
+  PUBLISHED
+  /// Sem YouTube conectado ou escolhido: o dono publica pelo YouTube Studio com o pacote
+  MANUAL
+  FAILED
+  CANCELED
+}
+
+model Publication {
+  id             String            @id @default(cuid())
+  productionId   String            @unique
+  production     Production        @relation(fields: [productionId], references: [id], onDelete: Restrict)
+  status         PublicationStatus @default(QUEUED)
+  /// "api" (envio pelo estúdio) | "manual" (pacote para o YouTube Studio)
+  mode           String
+  title          String
+  description    String
+  tags           String[]          @default([])
+  categoryId     String            @default("20")
+  publishAt      DateTime
+  /// Sempre true (regra 7): marca de conteúdo sintético no envio
+  syntheticMedia Boolean           @default(true)
+  youtubeVideoId String?
+  /// Sessão do upload resumable (retoma depois de reiniciar)
+  uploadUri      String?
+  uploadedBytes  Int               @default(0)
+  thumbnailSet   Boolean           @default(false)
+  /// Envio simulado (modo simulado ligado)
+  simulated      Boolean           @default(false)
+  step           String?
+  error          String?
+  approvedBy     String
+  approvedAt     DateTime          @default(now())
+  publishedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([status])
+  @@index([publishAt])
+}
+
+/// Números do canal por dia (YouTube Analytics).
+model ChannelStat {
+  id                String   @id @default(cuid())
+  /// AAAA-MM-DD
+  day               String   @unique
+  views             Int      @default(0)
+  minutesWatched    Int      @default(0)
+  subscribersGained Int      @default(0)
+  subscribersLost   Int      @default(0)
+  likes             Int      @default(0)
+  comments          Int      @default(0)
+  simulated         Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+}
+
+/// Números de cada vídeo publicado pelo estúdio (acumulados até o dia da coleta).
+model VideoStat {
+  id                 String   @id @default(cuid())
+  youtubeVideoId     String
+  /// AAAA-MM-DD da coleta
+  day                String
+  views              Int      @default(0)
+  likes              Int      @default(0)
+  comments           Int      @default(0)
+  minutesWatched     Int      @default(0)
+  averageViewSeconds Int      @default(0)
+  simulated          Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+
+  @@unique([youtubeVideoId, day])
+  @@index([day])
+}
+
+// ---------------------------------------------------------------------------
+// Comando (Fase 7): conversa com o Diretor e ações que esperam a confirmação do dono.
+// ---------------------------------------------------------------------------
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  /// "user" | "assistant" | "tool"
+  role      String
+  /// Texto (assistant vai sendo escrito durante o streaming)
+  text      String   @default("")
+  /// Ferramenta chamada e resultado (role "tool")
+  tool      Json?
+  /// "pronto" | "escrevendo" | "erro"
+  state     String   @default("pronto")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+enum ActionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+/// Ação com efeito no canal pedida no Comando: só acontece quando o dono confirma.
+model PendingAction {
+  id        String       @id @default(cuid())
+  kind      String
+  params    Json
+  summary   String
+  status    ActionStatus @default(PENDING)
+  result    String?
+  createdAt DateTime     @default(now())
+  decidedAt DateTime?
+
   @@index([status])
 }
 

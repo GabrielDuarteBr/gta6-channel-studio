@@ -117,3 +117,15 @@ export const PARTNER_IMPORT_JOB = 'partner.import';
 export const ANALYZE_JOB = 'media.analyze';
 /** Fila "research": Caçador de parceiros (semanal ou pelo botão). */
 export const HUNT_JOB = 'partners.hunt';
+
+/** Fases 5–7. */
+/** Fila "llm": Conformidade (relatório bloqueante antes de publicar). */
+export const COMPLIANCE_JOB = 'publish.compliance';
+/** Fila "upload": envio ao YouTube (privado + agendado) com retomada. */
+export const UPLOAD_JOB = 'publish.upload';
+/** Fila "system": números do canal (YouTube Analytics), todo dia. */
+export const METRICS_JOB = 'metrics.sync';
+/** Fila "system": produção diária automática (vai para a Aprovação). */
+export const DAILY_JOB = 'pauta.daily';
+/** Fila "llm": uma resposta do Diretor no Comando. */
+export const CHAT_JOB = 'chat.turn';

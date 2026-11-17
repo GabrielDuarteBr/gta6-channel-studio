@@ -447,6 +447,9 @@ export async function runReactProduction(
     });
     if (verdict.approved) {
       await setStatus({ status: 'READY', step: null, finishedAt: ctx.now?.() ?? new Date() });
+      await ctx
+        .onReady?.(prod.id)
+        .catch((err: unknown) => log.warn({ err }, 'Conformidade não enfileirada'));
       break;
     }
     if (round >= settings.production.maxReviewRounds) {

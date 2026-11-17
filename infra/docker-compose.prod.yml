@@ -126,6 +126,8 @@ services:
       <<: *app-env
       AUTH_SECRET: ${AUTH_SECRET:?}
       AUTH_URL: https://${DOMAIN:?}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -145,6 +147,9 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Arquivos de parceiros no Google Drive (Drive API). Vazia = usa a YOUTUBE_API_KEY.
       GOOGLE_DRIVE_API_KEY: ${GOOGLE_DRIVE_API_KEY:-}
+      # Publicação no YouTube (OAuth do canal; o token fica cifrado no banco).
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
     # Vídeos de parceiros: o download vai direto para a pasta de trabalho (corte e análise).
     volumes: [mediawork:/data/work]
     depends_on:

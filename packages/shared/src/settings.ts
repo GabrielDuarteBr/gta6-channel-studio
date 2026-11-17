@@ -176,6 +176,39 @@ export const SETTINGS = {
       commentatorModel: 'claude-sonnet-5-5',
       layouts: ['tv', 'split', 'cinema'],
     }),
+
+  /**
+   * Publicação no YouTube (Fase 5). Tudo sobe PRIVADO com data marcada; o horário padrão sai dos
+   * horários de publicação (Brasília). Categoria 20 = Jogos.
+   */
+  youtube: z
+    .object({
+      categoryId: z.string().regex(/^\d{1,3}$/),
+      defaultTags: z.array(z.string().min(2).max(40)).max(15),
+      publishTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).min(1).max(6),
+      notifySubscribers: z.boolean(),
+    })
+    .default({
+      categoryId: '20',
+      defaultTags: ['GTA 6', 'GTA VI', 'Grand Theft Auto VI', 'Radar Neon', 'notícias de games'],
+      publishTimes: ['12:00', '18:00', '20:30'],
+      notifySubscribers: true,
+    }),
+
+  /**
+   * Produção diária automática (Fase 7): no horário marcado o estúdio escolhe as melhores
+   * histórias (e um vídeo de parceiro, se houver) e produz até o limite do dia. Tudo vai para a
+   * fila de Aprovação — nada sobe sem o dono (a não ser com o piloto automático ligado).
+   */
+  'schedule.daily': z
+    .object({
+      enabled: z.boolean(),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      long: z.number().int().min(0).max(5),
+      newsShorts: z.number().int().min(0).max(10),
+      reacts: z.number().int().min(0).max(5),
+    })
+    .default({ enabled: true, time: '07:41', long: 1, newsShorts: 3, reacts: 1 }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

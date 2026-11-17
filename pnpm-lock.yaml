@@ -165,6 +165,9 @@ importers:
       '@studio/production':
         specifier: workspace:*
         version: link:../../packages/production
+      '@studio/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@studio/queue':
         specifier: workspace:*
         version: link:../../packages/queue

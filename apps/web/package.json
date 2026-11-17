@@ -18,6 +18,7 @@
     "@studio/db": "workspace:*",
     "@studio/policy": "workspace:*",
     "@studio/production": "workspace:*",
+    "@studio/providers": "workspace:*",
     "@studio/queue": "workspace:*",
     "@studio/shared": "workspace:*",
     "@studio/storage": "workspace:*",

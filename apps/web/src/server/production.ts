@@ -27,6 +27,7 @@ export async function listProductions(take = 20) {
       story: { select: { id: true, title: true, titlePt: true, isRumor: true } },
       partner: { select: { id: true, name: true } },
       sourceAsset: { select: { id: true, title: true } },
+      publication: { select: { status: true } },
     },
     orderBy: { createdAt: 'desc' },
     take,

@@ -20,10 +20,15 @@ test('todas as telas do menu abrem', async ({ page }) => {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
   }
-  for (const path of ['/aprovacao', '/calendario', '/comando']) {
+  for (const [path, heading] of [
+    ['/aprovacao', 'Aprovação'],
+    ['/calendario', 'Calendário'],
+    ['/comando', 'Comando'],
+  ] as const) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
-    await expect(page.getByText(/Chega na Fase \d/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    await expect(page.getByText(/Chega na Fase \d/)).toHaveCount(0);
   }
 });
 
