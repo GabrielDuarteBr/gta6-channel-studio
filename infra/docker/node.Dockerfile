@@ -91,7 +91,7 @@ RUN --mount=type=secret,id=extra_ca,required=false \
 # ---------------------------------------------------------------- agents (runtime)
 FROM os-base AS agents
 ENV NODE_ENV=production PORT=4100
-RUN useradd --create-home --uid 1001 agents
+RUN useradd --create-home --uid 1001 agents && mkdir -p /data/work && chown agents:agents /data/work
 COPY --from=app-prod --chown=agents:agents /app /app
 WORKDIR /app/apps/agents
 USER agents

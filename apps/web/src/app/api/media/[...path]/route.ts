@@ -10,7 +10,9 @@ const ALLOWED = new RegExp(
   [
     '^clips/[0-9a-f]{16}/[A-Za-z0-9_-]{1,40}\\.(mp4|wav)$',
     // Fase 3: vídeo e thumbnails de cada volta de uma produção
-    '^productions/[a-z0-9]{8,40}/r[0-9]{1,2}/(video\\.mp4|thumb-[1-3]\\.png)$',
+    '^productions/[a-z0-9]{8,40}/r[0-9]{1,2}/(video\\.mp4|react\\.mp4|thumb-[1-3]\\.png)$',
+    // Fase 4: prévia dos vídeos de parceiros (cópia de trabalho, nome pelo conteúdo)
+    '^partners/[0-9a-f]{64}\\.(mp4|webm|mov)$',
   ].join('|'),
 );
 

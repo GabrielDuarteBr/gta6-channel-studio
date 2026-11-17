@@ -429,3 +429,262 @@ def image_preview(image_rel: str, width: int = 768) -> dict:
         ]
     )
     return {"jpeg_b64": data}
+
+
+# ---------------------------------------------------------------------------
+# Fase 4: vídeos de parceiros (dados do arquivo, trocas de cena, corte do trecho)
+# ---------------------------------------------------------------------------
+
+VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".mkv", ".webm", ".m4v"})
+MAX_VIDEO_SECONDS = 60 * 60
+CLIP_BOX = (1280, 720)
+CLIP_FPS = 30
+MAX_CLIP_SECONDS = 60.0
+MAX_SPEECH_RANGES = 400
+
+
+def _video_src(rel: str) -> Path:
+    src = safe_path(rel)
+    if not src.is_file():
+        raise MediaToolError("vídeo não encontrado")
+    if src.suffix.lower() not in VIDEO_SUFFIXES:
+        raise MediaToolError("formato de vídeo não aceito (mp4, mov, mkv, webm, m4v)")
+    return src
+
+
+def _fps(rate: str) -> float:
+    try:
+        num, _, den = rate.partition("/")
+        value = float(num) / float(den or 1)
+    except (ValueError, ZeroDivisionError):
+        return 0.0
+    return round(value, 3)
+
+
+def video_probe(rel: str) -> dict:
+    """Dados do vídeo (duração, tamanho, quadros por segundo, áudio) pelo ffprobe."""
+    src = _video_src(rel)
+    raw = _run(
+        [
+            _binary("ffprobe"),
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(src),
+        ],
+        timeout=60,
+    )
+    data = json.loads(raw)
+    streams = data.get("streams", [])
+    video = next((s for s in streams if s.get("codec_type") == "video"), None)
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    if video is None:
+        raise MediaToolError("o arquivo não tem vídeo")
+    try:
+        duration = float(data.get("format", {}).get("duration") or video.get("duration") or 0)
+    except ValueError:
+        duration = 0.0
+    if duration <= 0:
+        raise MediaToolError("não consegui ler a duração do vídeo")
+    if duration > MAX_VIDEO_SECONDS:
+        raise MediaToolError("vídeo com mais de 1 hora")
+    return {
+        "path": _relative(src),
+        "duration_sec": round(duration, 3),
+        "width": int(video.get("width") or 0),
+        "height": int(video.get("height") or 0),
+        "fps": _fps(str(video.get("avg_frame_rate") or video.get("r_frame_rate") or "0/1")),
+        "video_codec": str(video.get("codec_name") or ""),
+        "has_audio": audio is not None,
+        "audio_codec": str(audio.get("codec_name") or "") if audio else "",
+        "bytes": src.stat().st_size,
+    }
+
+
+def scene_changes(rel: str, threshold: float = 10.0) -> dict:
+    """Instantes de troca de cena (filtro scdet do FFmpeg, em vídeo reduzido para ir rápido)."""
+    src = _video_src(rel)
+    if not 1.0 <= threshold <= 50.0:
+        raise MediaToolError("limiar de cena entre 1 e 50")
+    out = _run(
+        [
+            _binary("ffmpeg"),
+            "-hide_banner",
+            "-nostats",
+            "-loglevel",
+            "error",
+            "-i",
+            str(src),
+            "-an",
+            "-vf",
+            f"scale=320:-2,scdet=threshold={threshold:g}:sc_pass=0,"
+            "metadata=print:key=lavfi.scd.time:file=-",
+            "-f",
+            "null",
+            "-",
+        ],
+        timeout=900,
+    )
+    times: list[float] = []
+    for line in out.splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == "lavfi.scd.time":
+            try:
+                times.append(round(float(value), 3))
+            except ValueError:
+                continue
+    return {"scenes": sorted(set(times))}
+
+
+def _gain_expression(ranges: list[tuple[float, float]]) -> str:
+    """Volume 1 dentro dos trechos de fala e 0 fora (expressão do filtro volume)."""
+    if not ranges:
+        return "0"
+    parts = [f"between(t,{a:.3f},{b:.3f})" for a, b in ranges]
+    return f"min(1,{'+'.join(parts)})"
+
+
+def cut_clip(
+    src_rel: str,
+    out_rel: str,
+    start: float,
+    end: float,
+    audio_mode: str,
+    speech_ranges: list[list[float]] | None = None,
+) -> dict:
+    """Corta um trecho do vídeo do parceiro para o Short de react.
+
+    Vídeo: 30 quadros/s, cabendo em 1280x720 sem distorcer. Áudio (regra 2):
+    - "voice": só os trechos de fala do parceiro (o resto, como música e TV, fica mudo);
+    - "full": áudio original inteiro (o dono marcou que não há música/filme/TV de terceiros);
+    - "mute": sem áudio.
+    """
+    src = _video_src(src_rel)
+    out = safe_path(out_rel)
+    if out.suffix != ".mp4":
+        raise MediaToolError("a saída precisa ser .mp4")
+    if audio_mode not in {"voice", "full", "mute"}:
+        raise MediaToolError("modo de áudio inválido")
+    if not video_probe(src_rel)["has_audio"]:
+        audio_mode = "mute"
+    if start < 0 or end <= start:
+        raise MediaToolError("trecho inválido")
+    if end - start > MAX_CLIP_SECONDS:
+        raise MediaToolError(f"trecho maior que {MAX_CLIP_SECONDS:.0f} s")
+    ranges: list[tuple[float, float]] = []
+    for item in speech_ranges or []:
+        if len(item) != 2:
+            raise MediaToolError("trecho de fala inválido")
+        a, b = max(float(item[0]), start), min(float(item[1]), end)
+        if b > a:
+            ranges.append((round(a - start, 3), round(b - start, 3)))
+    if len(ranges) > MAX_SPEECH_RANGES:
+        raise MediaToolError("trechos de fala demais")
+    w, h = CLIP_BOX
+    vf = (
+        f"scale=w={w}:h={h}:force_original_aspect_ratio=decrease:force_divisible_by=2,"
+        f"fps={CLIP_FPS},format=yuv420p"
+    )
+    args = [
+        _binary("ffmpeg"),
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-ss",
+        f"{start:.3f}",
+        "-to",
+        f"{end:.3f}",
+        "-i",
+        str(src),
+        "-map",
+        "0:v:0",
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-map_metadata",
+        "-1",
+    ]
+    if audio_mode == "mute":
+        args += ["-an"]
+    else:
+        gain = "1" if audio_mode == "full" else _gain_expression(ranges)
+        args += [
+            "-map",
+            "0:a:0?",
+            "-af",
+            f"volume='{gain}':eval=frame,loudnorm=I=-16:TP=-1.5:LRA=11,"
+            "aresample=48000,aformat=channel_layouts=stereo",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+        ]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(f".{out.stem}.tmp.mp4")
+    _run([*args, "-movflags", "+faststart", str(tmp)], timeout=600)
+    tmp.replace(out)
+    probe = video_probe(_relative(out))
+    return {
+        "path": _relative(out),
+        "duration_sec": probe["duration_sec"],
+        "width": probe["width"],
+        "height": probe["height"],
+        "audio_mode": audio_mode,
+        "speech_ranges": [[a, b] for a, b in ranges],
+    }
+
+
+MAX_ARCHIVE_FILES = 50
+MAX_ARCHIVE_BYTES = 4 * 1024 * 1024 * 1024
+
+
+def extract_videos(zip_rel: str, out_dir_rel: str, max_files: int = 20) -> dict:
+    """Tira os vídeos de uma pasta baixada em .zip (link de pasta do Dropbox).
+
+    Só arquivos de vídeo, sem subpastas no destino (nada escapa da pasta de trabalho) e com
+    limite de quantidade e de tamanho descompactado.
+    """
+    import zipfile
+
+    src = safe_path(zip_rel)
+    if not src.is_file() or src.suffix != ".zip":
+        raise MediaToolError("arquivo .zip não encontrado")
+    if not 1 <= max_files <= MAX_ARCHIVE_FILES:
+        raise MediaToolError(f"de 1 a {MAX_ARCHIVE_FILES} arquivos")
+    out_dir = safe_path(out_dir_rel)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    extracted: list[dict] = []
+    total = 0
+    try:
+        with zipfile.ZipFile(src) as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                name = Path(info.filename).name
+                suffix = Path(name).suffix.lower()
+                if suffix not in VIDEO_SUFFIXES or name.startswith("."):
+                    continue
+                if len(extracted) >= max_files:
+                    break
+                total += info.file_size
+                if total > MAX_ARCHIVE_BYTES:
+                    raise MediaToolError("pasta grande demais depois de descompactada")
+                safe_name = "".join(c if c.isalnum() or c in "._-" else "_" for c in name)[-120:]
+                target = safe_path(f"{out_dir_rel}/{len(extracted):02d}-{safe_name}")
+                with zf.open(info) as fin, target.open("wb") as fout:
+                    shutil.copyfileobj(fin, fout, length=1024 * 1024)
+                extracted.append(
+                    {"path": _relative(target), "name": name, "bytes": target.stat().st_size}
+                )
+    except zipfile.BadZipFile as exc:
+        raise MediaToolError("o .zip está corrompido") from exc
+    return {"files": extracted}

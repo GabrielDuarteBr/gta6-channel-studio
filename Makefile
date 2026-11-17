@@ -14,7 +14,7 @@ TEST_COMPOSE := docker compose -p radar-neon-test -f infra/docker-compose.yml -f
 GHCR_OWNER   ?= gabrielduartebr
 IMAGE_TAG    ?= local
 
-.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 accept-3 zeca vozes imagens produzir diagnose
+.PHONY: help setup wsl-check up down restart logs ps owner coletar reset test test-down e2e render-test build-prod accept-0 accept-1 accept-2 accept-3 accept-4 zeca vozes imagens produzir parceiros diagnose
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -63,6 +63,9 @@ imagens: .env ## Modelos de imagem do Google da sua chave; COMPARAR=1 gera as me
 produzir: .env ## Produz um vídeo pela fila e espera; FORMATO=LONG|SHORT, HISTORIA=<id>, REAL=1 (pago)
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/produce.ts --formato=$(or $(FORMATO),SHORT) $(if $(HISTORIA),--historia=$(HISTORIA),) $(if $(filter 1,$(REAL)),--real,)
 
+parceiros: .env ## Caçador de parceiros agora (YouTube só metadados; nunca envia mensagens)
+	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/react.ts --cacador
+
 reset: ## APAGA banco, filas e arquivos locais (pede confirmação)
 	@read -r -p "Isso apaga banco, filas e arquivos locais do notebook. Digite APAGAR para confirmar: " c; \
 	  if [ "$$c" != "APAGAR" ]; then echo "Cancelado."; exit 1; fi
@@ -108,6 +111,9 @@ accept-2: .env ## Todos os critérios de aceite da Fase 2 (Personagem)
 
 accept-3: .env ## Todos os critérios de aceite da Fase 3 (Notícias em vídeo); REAL=1 mede o custo real
 	@REAL=$(REAL) bash scripts/accept-3.sh
+
+accept-4: .env ## Todos os critérios de aceite da Fase 4 (Parceiros e react); REAL=1 mede o custo real
+	@REAL=$(REAL) bash scripts/accept-4.sh
 
 diagnose: ## Mostra por que algum serviço não está saudável (estado, teste de saúde e logs)
 	@bash scripts/diagnose.sh

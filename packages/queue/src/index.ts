@@ -106,3 +106,14 @@ export function createWorker<T = unknown, R = unknown>(
 }
 
 export { Queue, UnrecoverableError, Worker, type Job };
+
+/**
+ * Nomes dos jobs da Fase 4 (o painel enfileira; o agents executa). Ficam aqui para os dois
+ * lados usarem o mesmo nome.
+ */
+/** Fila "media": baixa/recebe os arquivos do parceiro e guarda na Biblioteca. */
+export const PARTNER_IMPORT_JOB = 'partner.import';
+/** Fila "media": transcrição, fala, música e cenas do vídeo do parceiro. */
+export const ANALYZE_JOB = 'media.analyze';
+/** Fila "research": Caçador de parceiros (semanal ou pelo botão). */
+export const HUNT_JOB = 'partners.hunt';

@@ -20,8 +20,10 @@ services:
       ANTHROPIC_API_KEY: ''
       GOOGLE_TTS_API_KEY: ''
       GEMINI_API_KEY: ''
-      # Pilha de testes sem internet: não busca a cotação do Banco Central.
+      GOOGLE_DRIVE_API_KEY: ''
+      # Pilha de testes sem internet: não busca a cotação do Banco Central nem caça parceiros.
       FX_SCHEDULE: 'off'
+      PARTNER_HUNT_SCHEDULE: 'off'
 
   # Lint, tipos e testes (unitários + integração com Postgres/Redis reais).
   tests:

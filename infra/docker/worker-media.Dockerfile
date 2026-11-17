@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Worker de mídia: Python 3.11 + FFmpeg + espeak-ng (voz falsa) + Rhubarb Lip Sync
-# (+ faster-whisper e PySceneDetect nas próximas fases).
+# e faster-whisper (transcrição e trechos de fala dos vídeos de parceiros, Fase 4).
 ARG PYTHON_IMAGE=python:3.11-slim-bookworm
 ARG UBUNTU_IMAGE=ubuntu:24.04
 
@@ -46,7 +46,7 @@ PY
 FROM ${UBUNTU_IMAGE} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive TZ=America/Sao_Paulo \
     UV_PYTHON_INSTALL_DIR=/opt/python UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/opt/venv PATH=/opt/venv/bin:$PATH
+    UV_PROJECT_ENVIRONMENT=/opt/venv UV_NO_CACHE=1 PATH=/opt/venv/bin:$PATH
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata ffmpeg espeak-ng \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=uv /usr/local/bin/uv /usr/local/bin/uv
@@ -57,6 +57,17 @@ WORKDIR /srv
 COPY apps/worker-media/pyproject.toml apps/worker-media/uv.lock ./
 RUN --mount=type=secret,id=extra_ca,required=false \
     with-ca uv python install 3.11 && with-ca uv sync --frozen --no-dev --python 3.11
+# Modelo Whisper "small" (CTranslate2, licença MIT, huggingface.co/Systran/faster-whisper-small)
+# dentro da imagem, numa revisão fixa: nada é baixado em tempo de execução.
+# HF_HUB_DISABLE_XET: download HTTP simples, que funciona atrás de proxy.
+ARG WHISPER_REVISION=536b0662742c02347bc0e980a01041f333bce120
+ENV WHISPER_MODEL=small WHISPER_MODEL_DIR=/opt/whisper WHISPER_THREADS=2 \
+    HF_HUB_DISABLE_XET=1 HF_HUB_DISABLE_TELEMETRY=1 HF_HUB_OFFLINE=0
+RUN --mount=type=secret,id=extra_ca,required=false \
+    with-ca python -c "from faster_whisper.utils import download_model; download_model('small', output_dir='/opt/whisper/small', revision='${WHISPER_REVISION}')" \
+ && rm -rf /opt/whisper/small/.cache && test -s /opt/whisper/small/model.bin
+# Em execução, o Hugging Face fica desligado (o modelo já está aqui).
+ENV HF_HUB_OFFLINE=1
 COPY apps/worker-media/app ./app
 RUN useradd --create-home --uid 1001 media && mkdir -p /data/work && chown -R media:media /data
 USER media

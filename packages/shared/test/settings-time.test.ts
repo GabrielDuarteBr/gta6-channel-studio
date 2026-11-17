@@ -16,6 +16,13 @@ describe('settings', () => {
     expect(() => parseSetting('limits.daily', { long: -1, shorts: 4 })).toThrow();
     expect(coerceSetting('limits.daily', 'lixo')).toEqual({ long: 1, shorts: 4 });
   });
+
+  it('react: o clipe nunca passa de 50% e o Caçador vem ligado (semanal)', () => {
+    const react = defaultSetting('react');
+    expect(react.maxClipRatio).toBeLessThanOrEqual(0.5);
+    expect(() => parseSetting('react', { ...react, maxClipRatio: 0.6 })).toThrow();
+    expect(defaultSetting('partners').huntWeekly).toBe(true);
+  });
 });
 
 describe('time', () => {

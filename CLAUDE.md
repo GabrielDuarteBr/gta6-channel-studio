@@ -46,7 +46,7 @@ worker de render/upload confere de novo no banco. Toda decisão vai para `AuditL
 apps/web           Next.js 16 (App Router) + Tailwind 4 + Auth.js v5 (senha + TOTP). Painel em :3000
 apps/agents        Orquestrador (Claude Agent SDK, a partir da Fase 1) + workers BullMQ. /health :4100
 apps/render        Remotion 4 (composições, avatar, thumbnails). /health :4200
-apps/worker-media  Python 3.11 + FastAPI interna: FFmpeg, faster-whisper, PySceneDetect, Rhubarb. :4300
+apps/worker-media  Python 3.11 + FastAPI interna: FFmpeg, faster-whisper (modelo small na imagem), Rhubarb. :4300
 packages/shared    config zod, perfis notebook|vps, settings, logger com redação, crypto, datas
 packages/policy    regras inegociáveis como funções puras
 packages/db        Prisma 7 (adapter pg), login do dono, settings auditadas
@@ -58,7 +58,8 @@ packages/avatar    personagem: marcações do roteiro, linha do tempo, piscadas,
                    arte em camadas do Zeca (`@studio/avatar/art`, React puro, usada no render e no painel)
 packages/providers provedores plugáveis (voz/TTS e imagem; upload na Fase 5), com Fake
 packages/storage   S3 (SeaweedFS), leitura do tipo de imagem pelos bytes e a Biblioteca (manifesto)
-packages/production roteiro do vídeo (zod), plano do vídeo (cenas, legendas, fonte, rumor), thumbnails
+packages/production roteiro do vídeo (zod), plano do vídeo (cenas, legendas, fonte, rumor), thumbnails,
+                   react (trechos candidatos, roteiro do Comentarista, plano com o clipe pausado)
 e2e                Playwright (pilha isolada)
 infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, SeaweedFS
 ```
@@ -123,6 +124,30 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   (`fetchOfficialImage`, nunca YouTube). Tela Arte: aprovar (tag `aprovada` → o Roteirista pode
   reutilizar), variação (job `art.variation` na fila `image`), descartar (revoga). Fontes Anton e
   Inter embutidas (Fontsource, OFL). Chave `GEMINI_API_KEY` só no `.env`.
+- **Parceiros e react (Fase 4)**: tabelas `Partner` (candidato → parceiro), `PartnerPermission`
+  (tipo `REACT_CLIPS`, prova, condições `{credit, link, hashtag, monetization, maxClipSec}`, status
+  ACTIVE/SUSPENDED/REVOKED) e `PartnerImport`; `Asset` ganhou vídeo (`durationSec`, `analysis`,
+  `audioCleared`) e `RightsManifest.permissionId`; `Production.kind` NEWS|REACT (`storyId` opcional).
+  Regras em `packages/policy/src/partner.ts`: `assertPermissionInput` (frase vaga não é permissão),
+  `assertPartnerPermission` (camadas 1–3), `parseShareLink` (só Dropbox/Drive; YouTube recusado),
+  `isAllowedDownloadHost` (cada redirecionamento conferido), `checkReactTimeline` (clipe ≤ 50%,
+  comentário substantivo ≥ 50%, sem sobreposição, crédito em todo clipe). Caçador
+  (`apps/agents/src/partners/hunter.ts`, job `partners.hunt` na fila `research`, semanal +
+  botão): YouTube só metadados (`search.list type=channel` + `channels.list`), Haiku dá nota e a
+  abertura; o texto fixo do rascunho (com aviso de IA) é do código; **nunca envia**. Importação
+  (`partner.import`, fila `media`): Dropbox (`dl=1`), Drive API v3 (`files.get alt=media`, chave
+  `GOOGLE_DRIVE_API_KEY` ou a do YouTube, no cabeçalho `x-goog-api-key`) ou envio pelo painel
+  (`/api/partners/upload`, fora do proxy, em fluxo para `incoming/` no S3); confere bytes (mp4/mov/
+  mkv/webm/zip), tamanho e duração, guarda em `library/` com manifesto e copia para
+  `/data/work/partners/<sha>.<ext>` (agents agora monta o volume de trabalho). Análise
+  (`media.analyze`): faster-whisper small int8 (fala via Silero VAD, música = ♪/[música]),
+  cenas pelo `scdet` do FFmpeg, volume por segundo. React (`apps/agents/src/react/pipeline.ts`,
+  mesmo job `production.run`): `clipCandidates` → Comentarista (Sonnet, quadros + transcrição,
+  avalia cutscene/mídia de terceiros/vazamento/spoiler) → voz → `fitClipDurations` (≤ 45% com
+  folga) → `cut` (só a voz do parceiro; áudio inteiro só com `audioCleared`) → trilha com pausas do
+  tamanho dos clipes → `buildReactPlan` → 3ª camada (permissão, manifesto, regra 3, condições na
+  descrição) → `ReactShort` (layouts tv/split/cinema em rodízio; `Freeze` + `OffthreadVideo`) →
+  Revisor. Nomes dos jobs em `@studio/queue` (`PARTNER_IMPORT_JOB`, `ANALYZE_JOB`, `HUNT_JOB`).
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -147,6 +172,8 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make produzir` | produz um vídeo pela fila e espera (`FORMATO=LONG`, `HISTORIA=`, `REAL=1`) |
 | `make imagens` | modelos de imagem da chave Gemini (`COMPARAR=1` gera o comparativo, pago) |
 | `make accept-3` | aceite da Fase 3 (Short + longo + thumbnails + Revisor, render repetível, direitos; `REAL=1` mede custo) |
+| `make parceiros` | roda o Caçador de parceiros agora (precisa da `YOUTUBE_API_KEY`; só rascunha) |
+| `make accept-4` | aceite da Fase 4 (parceiro de teste + arquivo → react dentro dos limites, render repetível, bloqueios; `REAL=1` mede custo) |
 | `make accept-0` | todos os critérios de aceite da Fase 0 |
 | `make accept-1` | aceite da Fase 1 (coleta real + testes); `ESPERAR=1` espera a automática |
 | `make accept-2` | aceite da Fase 2 (clipe 2× com quadros idênticos, Short, testes) |
@@ -156,7 +183,7 @@ Desenvolvimento com Node local (opcional): `pnpm install`, `pnpm lint`, `pnpm tu
 test`. Testes de integração precisam de `TEST_DATABASE_URL` e `TEST_REDIS_URL` (cada pacote usa o
 banco `<nome>_<pacote>`, criado pelo global-setup, porque o Turbo roda os pacotes em paralelo). O e2e
 usa dados de demonstração (`apps/agents/src/scripts/seed-demo-pauta.ts`, só com `DEMO_SEED=1`) e a
-pilha de testes roda com `RESEARCH_SCHEDULE=off` (sem coleta automática nem rede real).
+pilha de testes roda com `RESEARCH_SCHEDULE=off`, `FX_SCHEDULE=off` e `PARTNER_HUNT_SCHEDULE=off` (sem rede real).
 `pnpm --filter @studio/db migrate:dev --name <nome>` cria migration (depois rode `pnpm db:generate`;
 o Prisma 7 não gera o cliente sozinho).
 

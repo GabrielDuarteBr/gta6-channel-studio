@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -14,6 +15,10 @@ export interface ObjectStore {
   get(key: string): Promise<Uint8Array>;
   head(key: string): Promise<{ size: number } | null>;
   delete(key: string): Promise<void>;
+  /** Envio em fluxo (vídeos grandes): o tamanho precisa ser conhecido. */
+  putStream(key: string, body: Readable, length: number, contentType: string): Promise<void>;
+  /** Leitura em fluxo (vídeos grandes). */
+  getStream(key: string): Promise<Readable>;
 }
 
 export class StorageError extends Error {
@@ -28,8 +33,11 @@ export interface S3Config {
   S3_SECRET_KEY: string;
 }
 
-/** Chaves aceitas: só a pasta da Biblioteca e de produções, sem "..". */
-const KEY = /^(library|productions)\/[a-z0-9][a-z0-9._/-]{0,200}$/;
+/**
+ * Chaves aceitas, sem "..": Biblioteca, produções, envios do painel ainda não processados
+ * (incoming/) e provas de permissão de parceiros (partners/).
+ */
+const KEY = /^(library|productions|incoming|partners)\/[a-z0-9][a-z0-9._/-]{0,200}$/;
 
 export function assertKey(key: string): void {
   if (!KEY.test(key) || key.includes('..') || key.includes('//')) {
@@ -86,6 +94,31 @@ export class S3ObjectStore implements ObjectStore {
     assertKey(key);
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
+
+  async putStream(key: string, body: Readable, length: number, contentType: string) {
+    assertKey(key);
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentLength: length,
+        ContentType: contentType,
+      }),
+    );
+  }
+
+  async getStream(key: string): Promise<Readable> {
+    assertKey(key);
+    try {
+      const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      if (!res.Body) throw new StorageError(`objeto vazio: ${key}`);
+      return res.Body as Readable;
+    } catch (err) {
+      if (err instanceof NoSuchKey) throw new StorageError(`objeto não encontrado: ${key}`);
+      throw err;
+    }
+  }
 }
 
 /** Para testes: tudo em memória. */
@@ -111,5 +144,17 @@ export class MemoryObjectStore implements ObjectStore {
 
   async delete(key: string): Promise<void> {
     this.objects.delete(key);
+  }
+
+  async putStream(key: string, body: Readable, length: number, contentType: string) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of body) chunks.push(Buffer.from(chunk as Uint8Array));
+    const all = Buffer.concat(chunks);
+    if (all.byteLength !== length) throw new StorageError('tamanho não confere');
+    await this.put(key, all, contentType);
+  }
+
+  async getStream(key: string): Promise<Readable> {
+    return Readable.from([Buffer.from(await this.get(key))]);
   }
 }

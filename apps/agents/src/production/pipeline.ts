@@ -53,6 +53,8 @@ export interface ProductionContext {
   googleTtsKey?: string | undefined;
   geminiKey?: string | undefined;
   now?: () => Date;
+  /** Pasta de trabalho (testes usam uma temporária). */
+  workRoot?: string;
   /** Para testes. */
   media?: MediaService;
   render?: RenderService;
@@ -130,6 +132,7 @@ export async function runProduction(
     return { status: prod.status, rounds: prod.reviewRound, costUsd: 0 };
   }
   const story = prod.story;
+  if (!story) throw new Error(`produção ${prod.id} de notícia sem história`);
   const format = prod.format as VideoFormat;
   // 3ª camada: a história ainda pode virar vídeo? (vazamento, trapaça, mods, spoiler, rumor < 2 fontes)
   assertCanPromoteStory(

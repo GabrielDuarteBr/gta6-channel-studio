@@ -332,15 +332,38 @@ model Asset {
   bytes       Int
   storyId     String?
   story       Story?            @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  /// Vídeo: duração em segundos
+  durationSec Float?
+  /// Nome do arquivo como chegou (envio do dono ou link do parceiro)
+  originalName String?
+  /// Arquivo de parceiro (origem PARTNER)
+  partnerId   String?
+  partner     Partner?          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  /// Análise do vídeo (transcrição, trechos de fala, música, trocas de cena)
+  analysis    Json?
+  analysisStatus AnalysisStatus?
+  analysisError  String?
+  /// O dono ouviu e marcou "sem música/filme/TV de terceiros": o áudio original pode ir inteiro.
+  /// Sem a marca, o clipe leva só a voz do parceiro (o resto fica mudo).
+  audioCleared Boolean          @default(false)
   /// "owner" | "agent:diretor-arte" ...
   createdBy   String
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   manifest    RightsManifest?
   usages      ProductionAsset[]
+  reactSources Production[]     @relation("ReactSource")
 
   @@index([origin])
   @@index([storyId])
+  @@index([partnerId])
+}
+
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  READY
+  FAILED
 }
 
 /// Manifesto de direitos: de onde veio, sob que licença, com que prova e restrições.
@@ -367,14 +390,26 @@ model RightsManifest {
   expiresAt     DateTime?
   revokedAt     DateTime?
   revokedReason String?
+  /// Permissão do parceiro que cobre este arquivo (origem PARTNER)
+  permissionId  String?
+  permission    PartnerPermission? @relation(fields: [permissionId], references: [id], onDelete: Restrict)
   createdBy     String
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  @@index([permissionId])
 }
 
 enum ProductionFormat {
   LONG
   SHORT
+}
+
+enum ProductionKind {
+  /// Notícia da Pauta (Fase 3)
+  NEWS
+  /// Short de react com clipe de parceiro (Fase 4)
+  REACT
 }
 
 enum ProductionStatus {
@@ -394,11 +429,18 @@ enum ProductionStatus {
   CANCELED
 }
 
-/// Um vídeo (longo 16:9 ou Short 9:16) produzido a partir de uma história da Pauta.
+/// Um vídeo: notícia (longo 16:9 ou Short 9:16, a partir de uma história da Pauta) ou
+/// Short de react (clipe de parceiro com comentário do Zeca).
 model Production {
   id           String            @id @default(cuid())
-  storyId      String
-  story        Story             @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  kind         ProductionKind    @default(NEWS)
+  storyId      String?
+  story        Story?            @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  /// React: parceiro e arquivo de origem
+  partnerId    String?
+  partner      Partner?          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  sourceAssetId String?
+  sourceAsset  Asset?            @relation("ReactSource", fields: [sourceAssetId], references: [id], onDelete: Restrict)
   format       ProductionFormat
   status       ProductionStatus  @default(DRAFT)
   /// Detalhe da etapa atual (ex.: "imagem 3 de 6")
@@ -425,6 +467,7 @@ model Production {
 
   @@index([status])
   @@index([storyId])
+  @@index([partnerId])
   @@index([createdAt])
 }
 
@@ -453,3 +496,134 @@ model FxRate {
   source    String
   fetchedAt DateTime @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// Parceiros (Fase 4): candidatos, permissões e condições. O sistema nunca envia mensagens.
+// ---------------------------------------------------------------------------
+
+enum PartnerStage {
+  /// Achado pelo Caçador ou colado pelo dono; sem permissão
+  CANDIDATE
+  /// O dono disse que mandou a mensagem (o sistema só rascunha)
+  CONTACTED
+  /// Tem permissão registrada (ver o status de cada permissão)
+  PARTNER
+  /// O dono descartou
+  DISMISSED
+}
+
+/// Criador de conteúdo de GTA 6: candidato ou parceiro.
+model Partner {
+  id           String       @id @default(cuid())
+  name         String
+  /// Canal do YouTube (só metadados)
+  channelId    String?      @unique
+  handle       String?
+  channelUrl   String
+  description  String?
+  country      String?
+  subscribers  Int?
+  videoCount   Int?
+  stage        PartnerStage @default(CANDIDATE)
+  /// Evidências: frases vagas encontradas ("cortes liberados" = candidato, nunca permissão)
+  evidence     Json?
+  /// Nota do Caçador (0 a 1) e o motivo
+  fitScore     Float?
+  fitReason    String?
+  /// Rascunho da mensagem pedindo permissão (o dono copia e envia por conta própria)
+  draftMessage String?
+  /// "agent:cacador" | "owner"
+  discoveredBy String
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  permissions  PartnerPermission[]
+  assets       Asset[]
+  productions  Production[]
+  imports      PartnerImport[]
+
+  @@index([stage])
+}
+
+enum PermissionType {
+  /// Cortes em Shorts de react com comentário do Zeca
+  REACT_CLIPS
+}
+
+enum ProofKind {
+  EMAIL
+  DIRECT_MESSAGE
+  CONTRACT
+  OTHER
+}
+
+enum PermissionStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+/// Permissão registrada pelo dono: tipo, prova, condições e status (regra 2).
+model PartnerPermission {
+  id            String           @id @default(cuid())
+  partnerId     String
+  partner       Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  type          PermissionType
+  proofKind     ProofKind
+  /// O que o criador escreveu, quando e onde
+  proof         String
+  /// Print ou e-mail salvo no S3
+  proofFileKey  String?
+  grantedAt     DateTime
+  expiresAt     DateTime?
+  /// { credit, link, hashtag, monetization, maxClipSec, notes }
+  conditions    Json
+  status        PermissionStatus @default(ACTIVE)
+  revokedAt     DateTime?
+  revokedReason String?
+  createdBy     String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  manifests     RightsManifest[]
+  imports       PartnerImport[]
+
+  @@index([partnerId])
+  @@index([status])
+}
+
+enum ImportStatus {
+  QUEUED
+  DOWNLOADING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+/// Importação de arquivos do parceiro: link do Dropbox/Drive (nunca YouTube) ou envio no painel.
+model PartnerImport {
+  id           String            @id @default(cuid())
+  partnerId    String
+  partner      Partner           @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  permissionId String
+  permission   PartnerPermission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  /// "dropbox" | "gdrive" | "upload"
+  source       String
+  /// Link compartilhado (Dropbox ou Google Drive)
+  url          String?
+  /// Envio pelo painel: chave temporária no S3 (incoming/...)
+  incomingKey  String?
+  originalName String?
+  title        String?
+  status       ImportStatus      @default(QUEUED)
+  step         String?
+  error        String?
+  /// Mídias criadas na Biblioteca
+  assetIds     String[]          @default([])
+  createdBy    String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([partnerId])
+  @@index([status])
+}
+

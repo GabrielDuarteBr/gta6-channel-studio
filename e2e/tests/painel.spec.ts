@@ -15,11 +15,12 @@ test('todas as telas do menu abrem', async ({ page }) => {
     '/producao',
     '/biblioteca',
     '/arte',
+    '/parceiros',
   ]) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
   }
-  for (const path of ['/aprovacao', '/calendario', '/parceiros', '/comando']) {
+  for (const path of ['/aprovacao', '/calendario', '/comando']) {
     const res = await page.goto(path);
     expect(res?.status(), path).toBe(200);
     await expect(page.getByText(/Chega na Fase \d/)).toBeVisible();

@@ -1,12 +1,13 @@
 [project]
 name = "worker-media"
 version = "0.0.0"
-description = "Worker de mídia do Radar Neon: FFmpeg, faster-whisper, PySceneDetect, Rhubarb (operações fechadas e tipadas)"
+description = "Worker de mídia do Radar Neon: FFmpeg, faster-whisper e Rhubarb (operações fechadas e tipadas)"
 requires-python = "==3.11.*"
 dependencies = [
   "fastapi==0.162.2",
   "uvicorn==0.54.0",
   "pydantic==2.14.3",
+  "faster-whisper==1.2.1",
 ]
 
 [dependency-groups]

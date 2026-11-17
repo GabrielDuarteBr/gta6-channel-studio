@@ -32,6 +32,8 @@ export default async function SettingsPage() {
   const character = settings.character;
   const production = settings.production;
   const images = settings.images;
+  const partners = settings.partners;
+  const react = settings.react;
 
   return (
     <>
@@ -461,6 +463,138 @@ export default async function SettingsPage() {
                 className="w-full rounded-lg border border-night-600 bg-night-900 px-3 py-2 text-sm text-white focus:border-neon-cyan focus:outline-none"
               />
             </div>
+          </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="partners"
+          title="Parceiros"
+          description="Caçador semanal (busca no YouTube só por dados públicos e triagem com o Claude Haiku; nunca envia mensagens) e limites dos arquivos importados."
+        >
+          <div className="space-y-3">
+            <Toggle
+              name="huntWeekly"
+              defaultChecked={partners.huntWeekly}
+              label="Caçador toda semana"
+              description="Cada rodada usa 1 busca do YouTube por termo e custa centavos com o Haiku."
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="huntQueries">Termos da busca (até 3, separados por vírgula)</Label>
+              <Input
+                id="huntQueries"
+                name="huntQueries"
+                defaultValue={partners.huntQueries.join(', ')}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="huntMaxChannels">Canais por rodada</Label>
+                <Input
+                  id="huntMaxChannels"
+                  name="huntMaxChannels"
+                  type="number"
+                  min={5}
+                  max={50}
+                  defaultValue={partners.huntMaxChannels}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="minSubscribers">Mínimo de inscritos</Label>
+                <Input
+                  id="minSubscribers"
+                  name="minSubscribers"
+                  type="number"
+                  min={0}
+                  defaultValue={partners.minSubscribers}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxImportMb">Arquivo máximo (MB)</Label>
+                <Input
+                  id="maxImportMb"
+                  name="maxImportMb"
+                  type="number"
+                  min={20}
+                  max={2000}
+                  defaultValue={partners.maxImportMb}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxClipMinutes">Vídeo máximo (min)</Label>
+                <Input
+                  id="maxClipMinutes"
+                  name="maxClipMinutes"
+                  type="number"
+                  min={1}
+                  max={60}
+                  defaultValue={partners.maxClipMinutes}
+                />
+              </div>
+            </div>
+          </div>
+        </SettingForm>
+
+        <SettingForm
+          settingKey="react"
+          title="Short de react"
+          description="O clipe do parceiro nunca passa de 50% do Short (regra 3); aqui dá para deixar mais rígido. O Zeca comenta com o clipe pausado."
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="react-target">Duração-alvo do Short (s)</Label>
+              <Input
+                id="react-target"
+                name="targetSec"
+                type="number"
+                min={20}
+                max={58}
+                defaultValue={react.targetSec}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="react-ratio">Clipe no máximo (% do Short)</Label>
+              <Input
+                id="react-ratio"
+                name="maxClipPercent"
+                type="number"
+                min={20}
+                max={50}
+                defaultValue={Math.round(react.maxClipRatio * 100)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="react-model">Comentarista</Label>
+              <Select
+                id="react-model"
+                name="commentatorModel"
+                defaultValue={react.commentatorModel}
+              >
+                <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
+                <option value="claude-opus-5-5">Claude Opus 5.5 (~2x o custo)</option>
+              </Select>
+            </div>
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-medium text-haze-300">Layouts no rodízio</legend>
+              <div className="flex flex-wrap gap-3 text-sm text-haze-200">
+                {(
+                  [
+                    ['tv', 'TV neon'],
+                    ['split', 'Tela dividida'],
+                    ['cinema', 'Cinema'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      name="layouts"
+                      value={value}
+                      defaultChecked={react.layouts.includes(value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
         </SettingForm>
 

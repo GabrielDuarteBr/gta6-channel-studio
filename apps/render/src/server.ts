@@ -37,6 +37,8 @@ const MEDIA_TYPES: Record<string, string> = {
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg',
   '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.webp': 'image/webp',
@@ -82,7 +84,7 @@ function serveWorkFile(req: IncomingMessage, res: ServerResponse, relative: stri
 }
 
 const renderRequest = z.object({
-  composition: z.enum(['ZecaClip', 'RivePoc', 'HelloZeca', 'NewsVideo', 'Thumbnail']),
+  composition: z.enum(['ZecaClip', 'RivePoc', 'HelloZeca', 'NewsVideo', 'Thumbnail', 'ReactShort']),
   props: z.record(z.string(), z.unknown()),
   /** Relativo à pasta de trabalho: .mp4 (vídeo) ou .png (quadro único). */
   output: z.string().regex(/\.(mp4|png)$/),

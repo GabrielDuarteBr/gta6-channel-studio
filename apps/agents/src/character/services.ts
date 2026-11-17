@@ -50,6 +50,70 @@ const keyframesSchema = z.object({
 });
 const previewSchema = z.object({ jpeg_b64: z.string() });
 
+const probeSchema = z.object({
+  path: z.string(),
+  duration_sec: z.number(),
+  width: z.number(),
+  height: z.number(),
+  fps: z.number(),
+  video_codec: z.string(),
+  has_audio: z.boolean(),
+  audio_codec: z.string(),
+  bytes: z.number(),
+});
+const range = z.tuple([z.number(), z.number()]);
+const analysisSchema = z.object({
+  path: z.string(),
+  probe: probeSchema,
+  language: z.string().nullable(),
+  speech: z.array(range),
+  segments: z.array(
+    z.object({
+      start: z.number(),
+      end: z.number(),
+      text: z.string(),
+      no_speech: z.number(),
+      music: z.boolean(),
+    }),
+  ),
+  music: z.array(range),
+  loudness: z.array(z.number()),
+  scenes: z.array(z.number()),
+  model: z.string().nullable(),
+});
+const cutSchema = z.object({
+  path: z.string(),
+  duration_sec: z.number(),
+  width: z.number(),
+  height: z.number(),
+  audio_mode: z.enum(['voice', 'full', 'mute']),
+  speech_ranges: z.array(range),
+});
+const extractSchema = z.object({
+  files: z.array(z.object({ path: z.string(), name: z.string(), bytes: z.number() })),
+});
+
+export type VideoProbe = z.infer<typeof probeSchema>;
+
+/** Análise do vídeo do parceiro (camelCase, como fica guardada em Asset.analysis). */
+export interface VideoAnalysis {
+  language: string | null;
+  durationSec: number;
+  width: number;
+  height: number;
+  hasAudio: boolean;
+  /** Trechos com fala (segundos). */
+  speech: Array<[number, number]>;
+  segments: Array<{ start: number; end: number; text: string; music: boolean }>;
+  /** Trechos com música marcada pelo Whisper (ficam fora do corte). */
+  music: Array<[number, number]>;
+  /** Nível de áudio (dBFS) de cada segundo. */
+  loudness: number[];
+  /** Trocas de cena (segundos). */
+  scenes: number[];
+  model: string | null;
+}
+
 export class MediaService {
   constructor(
     private readonly baseUrl: string,
@@ -135,6 +199,92 @@ export class MediaService {
     return r.jpeg_b64;
   }
 
+  /** Dados do vídeo (duração, tamanho, áudio). */
+  probe(video: string) {
+    return call(
+      this.fetchImpl,
+      `${this.baseUrl}/video/probe`,
+      probeSchema,
+      json({ video }, 60_000),
+      'dados do vídeo',
+    );
+  }
+
+  /** Transcrição, fala, música, cenas e nível de áudio (faster-whisper; pode levar minutos). */
+  async analyze(video: string, language?: string): Promise<VideoAnalysis> {
+    const r = await call(
+      this.fetchImpl,
+      `${this.baseUrl}/video/analyze`,
+      analysisSchema,
+      json({ video, ...(language ? { language } : {}) }, 45 * 60_000),
+      'análise do vídeo',
+    );
+    return {
+      language: r.language,
+      durationSec: r.probe.duration_sec,
+      width: r.probe.width,
+      height: r.probe.height,
+      hasAudio: r.probe.has_audio,
+      speech: r.speech,
+      segments: r.segments.map((x) => ({
+        start: x.start,
+        end: x.end,
+        text: x.text,
+        music: x.music,
+      })),
+      music: r.music,
+      loudness: r.loudness,
+      scenes: r.scenes,
+      model: r.model,
+    };
+  }
+
+  /** Corta um trecho do vídeo do parceiro (só a voz, áudio inteiro ou mudo). */
+  async cut(input: {
+    video: string;
+    out: string;
+    start: number;
+    end: number;
+    audioMode: 'voice' | 'full' | 'mute';
+    speech: Array<[number, number]>;
+  }) {
+    const r = await call(
+      this.fetchImpl,
+      `${this.baseUrl}/video/cut`,
+      cutSchema,
+      json(
+        {
+          video: input.video,
+          out: input.out,
+          start: input.start,
+          end: input.end,
+          audio_mode: input.audioMode,
+          speech_ranges: input.speech,
+        },
+        600_000,
+      ),
+      'corte do clipe',
+    );
+    return {
+      path: r.path,
+      durationSec: r.duration_sec,
+      width: r.width,
+      height: r.height,
+      audioMode: r.audio_mode,
+    };
+  }
+
+  /** Vídeos de uma pasta baixada em .zip (pasta do Dropbox). */
+  extractVideos(archive: string, outDir: string, maxFiles = 20) {
+    return call(
+      this.fetchImpl,
+      `${this.baseUrl}/archive/extract-videos`,
+      extractSchema,
+      json({ archive, out_dir: outDir, max_files: maxFiles }, 600_000),
+      'abrir a pasta .zip',
+    );
+  }
+
   frameHashes(video: string) {
     return call(
       this.fetchImpl,
@@ -170,7 +320,7 @@ const renderJobSchema = z.object({
 export type RenderReport = NonNullable<z.infer<typeof renderJobSchema>['report']>;
 
 export interface RenderRequest {
-  composition: 'ZecaClip' | 'RivePoc' | 'NewsVideo' | 'Thumbnail';
+  composition: 'ZecaClip' | 'RivePoc' | 'NewsVideo' | 'Thumbnail' | 'ReactShort';
   props: Record<string, unknown>;
   /** .mp4 para vídeo; .png para quadro único (thumbnail). */
   output: string;

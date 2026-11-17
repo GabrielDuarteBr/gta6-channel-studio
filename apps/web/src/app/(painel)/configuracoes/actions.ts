@@ -73,6 +73,25 @@ function valueFor(key: SettingKey, form: FormData): unknown {
         maxPerShort: num(form, 'maxPerShort'),
         style: String(form.get('style') ?? '').trim(),
       };
+    case 'partners':
+      return {
+        huntWeekly: form.get('huntWeekly') === 'on',
+        huntQueries: String(form.get('huntQueries') ?? '')
+          .split(',')
+          .map((q) => q.trim())
+          .filter(Boolean),
+        huntMaxChannels: num(form, 'huntMaxChannels'),
+        minSubscribers: num(form, 'minSubscribers'),
+        maxImportMb: num(form, 'maxImportMb'),
+        maxClipMinutes: num(form, 'maxClipMinutes'),
+      };
+    case 'react':
+      return {
+        targetSec: num(form, 'targetSec'),
+        maxClipRatio: num(form, 'maxClipPercent') / 100,
+        commentatorModel: String(form.get('commentatorModel') ?? ''),
+        layouts: form.getAll('layouts').map(String),
+      };
     case 'channel.identity':
       return {
         channelName: String(form.get('channelName') ?? '').trim(),

@@ -16,6 +16,10 @@ import { runClipJob } from './character/job';
 import { FX_JOB, runFxUpdate } from './fx';
 import { startHealthServer } from './health-server';
 import { markInterruptedJobs, prismaJobRecorder } from './job-recorder';
+import { MediaService } from './character/services';
+import { HUNT_JOB } from './partners/hunter';
+import { ANALYZE_JOB, PARTNER_IMPORT_JOB } from './partners/import';
+import { analyzeJobId, runAnalyzeJob, runHuntJob, runPartnerImportJob } from './partners/jobs';
 import { runProductionJob } from './production/job';
 import { PRODUCTION_JOB } from './production/pipeline';
 import { runVariation, VARIATION_JOB } from './production/variation';
@@ -94,6 +98,30 @@ async function main(): Promise<void> {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
   };
 
+  // Parceiros: Caçador semanal (o liga/desliga fica nas Configurações; o job confere).
+  // PARTNER_HUNT_SCHEDULE=off só na pilha de testes (sem rede real).
+  if (process.env.PARTNER_HUNT_SCHEDULE !== 'off') {
+    await researchQueue.upsertJobScheduler(
+      'partners-hunt',
+      { every: 7 * 24 * 3_600_000 },
+      { name: HUNT_JOB, data: { scheduled: true } },
+    );
+  } else {
+    await researchQueue.removeJobScheduler('partners-hunt');
+  }
+  const mediaQueue = createQueue('media', connection);
+  const partnerCtx = {
+    prisma,
+    log,
+    store: new S3ObjectStore(env),
+    media: new MediaService(env.MEDIA_URL),
+    // Drive: chave própria ou a do YouTube (mesmo projeto do Google Cloud, com a Drive API ativada).
+    driveKey: process.env.GOOGLE_DRIVE_API_KEY || process.env.YOUTUBE_API_KEY || undefined,
+    enqueueAnalysis: async (assetId: string) => {
+      await mediaQueue.add(ANALYZE_JOB, { assetId }, { jobId: analyzeJobId(assetId), attempts: 2 });
+    },
+  };
+
   // Personagem: bíblia v1 na primeira subida; clipes de teste na fila "render".
   const bibleSeeded = await ensureBible(prisma);
   if (bibleSeeded) log.info({ version: bibleSeeded }, 'bíblia do personagem criada');
@@ -122,6 +150,7 @@ async function main(): Promise<void> {
     createWorker(
       'research',
       async (job) => {
+        if (job.name === HUNT_JOB) return runHuntJob(pipelineCtx, job.data);
         if (job.name !== COLLECT_JOB)
           throw new Error(`job desconhecido na fila research: ${job.name}`);
         const summary = await runResearch(pipelineCtx);
@@ -173,6 +202,19 @@ async function main(): Promise<void> {
       },
     ),
     createWorker(
+      'media',
+      async (job) => {
+        if (job.name === PARTNER_IMPORT_JOB) return runPartnerImportJob(partnerCtx, job.data);
+        if (job.name === ANALYZE_JOB) return runAnalyzeJob(partnerCtx, job.data);
+        throw new Error(`job desconhecido na fila media: ${job.name}`);
+      },
+      {
+        connection,
+        concurrency: profile.queueConcurrency.media,
+        recorder: prismaJobRecorder(prisma),
+      },
+    ),
+    createWorker(
       'system',
       async (job) => {
         if (job.name === 'heartbeat') return { at: new Date().toISOString() };
@@ -191,16 +233,17 @@ async function main(): Promise<void> {
 
   const server = startHealthServer(Number(process.env.PORT ?? 4100), async () => {
     await prisma.$queryRaw`SELECT 1`;
-    const [system, research, render] = await Promise.all([
+    const [system, research, render, media] = await Promise.all([
       systemQueue.getJobCounts('waiting', 'active', 'failed'),
       researchQueue.getJobCounts('waiting', 'active', 'failed'),
       renderQueue.getJobCounts('waiting', 'active', 'failed'),
+      mediaQueue.getJobCounts('waiting', 'active', 'failed'),
     ]);
     return {
       status: 'ok',
       service: 'agents',
       profile: env.APP_PROFILE,
-      queues: { system, research, render },
+      queues: { system, research, render, media },
     };
   });
   log.info({ profile: env.APP_PROFILE, simulation: env.SIMULATION_MODE }, 'agents no ar');
@@ -212,6 +255,7 @@ async function main(): Promise<void> {
     await systemQueue.close();
     await researchQueue.close();
     await renderQueue.close();
+    await mediaQueue.close();
     await prisma.$disconnect();
     process.exit(0);
   };

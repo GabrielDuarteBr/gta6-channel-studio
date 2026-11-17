@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import platform
+from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -16,6 +17,8 @@ from pydantic import BaseModel, Field
 from app.media_tools import (
     MediaToolError,
     audio_info,
+    cut_clip,
+    extract_videos,
     ffmpeg_version,
     file_info,
     image_preview,
@@ -26,8 +29,10 @@ from app.media_tools import (
     tts_espeak,
     video_frame_hashes,
     video_keyframes,
+    video_probe,
     voice_track,
 )
+from app.transcribe import analyze_video, whisper_status
 
 PROFILE = os.environ.get("APP_PROFILE", "notebook")
 # Relativo à pasta de trabalho: não começa com "/" nem com "." (o safe_path confere o resto).
@@ -56,6 +61,7 @@ def health() -> JSONResponse:
             "profile": PROFILE,
             "python": platform.python_version(),
             "ffmpeg": ffmpeg,
+            "whisper": whisper_status(),
             **tool_versions(),
         },
     )
@@ -166,3 +172,46 @@ class PreviewIn(BaseModel):
 @app.post("/image/preview")
 def preview_route(body: PreviewIn) -> dict:
     return image_preview(body.image, body.width)
+
+
+# ---------------------------------------------------------------- Fase 4: vídeos de parceiros
+
+
+@app.post("/video/probe")
+def probe_route(body: VideoIn) -> dict:
+    return video_probe(body.video)
+
+
+class AnalyzeIn(BaseModel):
+    video: str = RelPath
+    language: str | None = Field(default=None, pattern=r"^[a-z]{2}$")
+
+
+@app.post("/video/analyze")
+def analyze_route(body: AnalyzeIn) -> dict:
+    return analyze_video(body.video, body.language)
+
+
+class CutIn(BaseModel):
+    video: str = RelPath
+    out: str = RelPath
+    start: float = Field(ge=0, le=3600)
+    end: float = Field(gt=0, le=3600)
+    audio_mode: Literal["voice", "full", "mute"]
+    speech_ranges: list[list[float]] = Field(default_factory=list, max_length=400)
+
+
+@app.post("/video/cut")
+def cut_route(body: CutIn) -> dict:
+    return cut_clip(body.video, body.out, body.start, body.end, body.audio_mode, body.speech_ranges)
+
+
+class ExtractIn(BaseModel):
+    archive: str = RelPath
+    out_dir: str = RelPath
+    max_files: int = Field(default=20, ge=1, le=50)
+
+
+@app.post("/archive/extract-videos")
+def extract_route(body: ExtractIn) -> dict:
+    return extract_videos(body.archive, body.out_dir, body.max_files)

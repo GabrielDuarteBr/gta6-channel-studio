@@ -23,7 +23,11 @@ export async function queuedStories() {
 export async function listProductions(take = 20) {
   const prisma = getPrisma();
   const rows = await prisma.production.findMany({
-    include: { story: { select: { id: true, title: true, titlePt: true, isRumor: true } } },
+    include: {
+      story: { select: { id: true, title: true, titlePt: true, isRumor: true } },
+      partner: { select: { id: true, name: true } },
+      sourceAsset: { select: { id: true, title: true } },
+    },
     orderBy: { createdAt: 'desc' },
     take,
   });

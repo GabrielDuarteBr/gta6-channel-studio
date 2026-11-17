@@ -135,6 +135,47 @@ export const SETTINGS = {
       windowDays: z.number().int().min(0).max(365),
     })
     .default({ launchDate: '2026-11-19', windowDays: 30 }),
+
+  /**
+   * Parceiros (Fase 4). Caçador: busca semanal no YouTube (só metadados, 1 busca por termo) e
+   * triagem com o Claude Haiku; cria candidatos com rascunho de mensagem (nunca envia).
+   * Arquivos: tamanho e duração máximos aceitos na importação.
+   */
+  partners: z
+    .object({
+      huntWeekly: z.boolean(),
+      huntQueries: z.array(z.string().min(2).max(60)).min(1).max(3),
+      huntMaxChannels: z.number().int().min(5).max(50),
+      minSubscribers: z.number().int().min(0).max(10_000_000),
+      maxImportMb: z.number().int().min(20).max(2000),
+      maxClipMinutes: z.number().int().min(1).max(60),
+    })
+    .default({
+      huntWeekly: true,
+      huntQueries: ['GTA 6 gameplay', 'GTA VI notícias'],
+      huntMaxChannels: 15,
+      minSubscribers: 1000,
+      maxImportMb: 1024,
+      maxClipMinutes: 20,
+    }),
+
+  /**
+   * Short de react (Fase 4). O clipe nunca passa de 50% (regra 3); aqui só dá para apertar.
+   * Comentarista e Cortador: modelos e duração-alvo; layouts que entram no rodízio.
+   */
+  react: z
+    .object({
+      targetSec: z.number().int().min(20).max(58),
+      maxClipRatio: z.number().min(0.2).max(0.5),
+      commentatorModel: z.enum(['claude-sonnet-5-5', 'claude-opus-5-5']),
+      layouts: z.array(z.enum(['tv', 'split', 'cinema'])).min(1),
+    })
+    .default({
+      targetSec: 40,
+      maxClipRatio: 0.45,
+      commentatorModel: 'claude-sonnet-5-5',
+      layouts: ['tv', 'split', 'cinema'],
+    }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

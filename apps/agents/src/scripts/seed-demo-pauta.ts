@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { getPrisma } from '@studio/db';
 import type { FetchLike } from '@studio/research';
 import { createLogger } from '@studio/shared';
+import { draftPartnerMessage } from '../partners/hunter';
 import { clusterAndScore, collectAll, triageStories } from '../research/pipeline';
 import { seedDefaultSources } from '../research/sources';
 
@@ -79,5 +80,30 @@ for (const [i, item] of items.entries()) {
 }
 await clusterAndScore({ prisma, log });
 await triageStories({ prisma, log });
+// Parceiros (Fase 4): um candidato achado pelo "Caçador", com a frase vaga na descrição.
+await prisma.partner.upsert({
+  where: { channelId: 'UCdemo0000000000000000001' },
+  create: {
+    name: 'Canal Demo GTA',
+    channelId: 'UCdemo0000000000000000001',
+    handle: '@canaldemogta',
+    channelUrl: 'https://www.youtube.com/@canaldemogta',
+    description: 'Gameplay de GTA 6 todo dia! Cortes liberados, só dar os créditos.',
+    country: 'BR',
+    subscribers: 42000,
+    videoCount: 310,
+    evidence: { hints: ['cortes liberados'], query: 'demo', note: 'indício, não permissão' },
+    fitScore: 0.8,
+    fitReason: 'Canal brasileiro de gameplay de GTA 6, ativo (demonstração).',
+    draftMessage: draftPartnerMessage({
+      creatorName: 'Canal Demo GTA',
+      opener: 'Curto muito as suas perseguições de GTA.',
+      channelName: 'Radar Neon',
+      characterName: 'Zeca Neon',
+    }),
+    discoveredBy: 'agent:cacador',
+  },
+  update: {},
+});
 console.log(`demo: ${items.length} itens, ${await prisma.story.count()} histórias`);
 await prisma.$disconnect();

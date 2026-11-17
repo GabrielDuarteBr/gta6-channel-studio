@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { audit, type Asset, type AssetOrigin, type Prisma, type PrismaClient } from '@studio/db';
-import { assertManifestInput } from '@studio/policy';
+import { assertManifestInput, type PermissionState } from '@studio/policy';
 import { sniffImage } from './image';
 import type { ObjectStore } from './object-store';
 
@@ -99,6 +101,105 @@ export async function addAsset(
     details: { origin: input.origin, mime: info.mime, bytes: input.bytes.byteLength },
   });
   return { asset, duplicate: false };
+}
+
+/** sha256 de um arquivo, em fluxo (vídeos grandes). */
+export async function sha256File(path: string): Promise<string> {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
+  return hash.digest('hex');
+}
+
+export const VIDEO_MIME: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  webm: 'video/webm',
+};
+
+export interface NewVideoInput {
+  /** Caminho absoluto do arquivo (na pasta de trabalho). */
+  filePath: string;
+  ext: keyof typeof VIDEO_MIME;
+  title: string;
+  originalName?: string | null;
+  origin: 'PARTNER' | 'OWNER_UPLOAD' | 'CHANNEL_OWN';
+  partnerId?: string | null;
+  durationSec: number;
+  width: number;
+  height: number;
+  manifest: ManifestFields & {
+    permissionId?: string | null;
+    permission?: PermissionState | null;
+  };
+  createdBy: string;
+}
+
+/**
+ * Vídeo na Biblioteca (Fase 4): mesmo manifesto obrigatório das imagens, arquivo no S3 em
+ * fluxo, nome pelo conteúdo. Parceiro só com permissão ativa (assertManifestInput).
+ */
+export async function addVideoAsset(
+  prisma: PrismaClient,
+  store: ObjectStore,
+  input: NewVideoInput,
+): Promise<AddAssetResult & { sha256: string }> {
+  assertManifestInput({ origin: input.origin, ...input.manifest });
+  const mime = VIDEO_MIME[input.ext];
+  if (!mime) throw new Error(`extensão de vídeo não aceita: ${input.ext}`);
+  const sha256 = await sha256File(input.filePath);
+  const existing = await prisma.asset.findUnique({ where: { sha256 } });
+  if (existing) {
+    if (existing.partnerId && existing.partnerId !== (input.partnerId ?? null)) {
+      throw new Error('o mesmo arquivo já está na Biblioteca com outro parceiro');
+    }
+    return { asset: existing, duplicate: true, sha256 };
+  }
+  const bytes = (await stat(input.filePath)).size;
+  const storageKey = libraryKey(sha256, input.ext);
+  if (!(await store.head(storageKey))) {
+    await store.putStream(storageKey, createReadStream(input.filePath), bytes, mime);
+  }
+  const m = input.manifest;
+  const asset = await prisma.asset.create({
+    data: {
+      kind: 'VIDEO',
+      origin: input.origin,
+      title: input.title.trim().slice(0, 140) || 'Vídeo',
+      originalName: input.originalName?.slice(0, 200) ?? null,
+      storageKey,
+      sha256,
+      mime,
+      width: input.width,
+      height: input.height,
+      bytes: Math.min(bytes, 2_147_483_647),
+      durationSec: input.durationSec,
+      partnerId: input.partnerId ?? null,
+      analysisStatus: 'PENDING',
+      createdBy: input.createdBy,
+      manifest: {
+        create: {
+          origin: input.origin,
+          license: m.license.trim(),
+          sourceUrl: m.sourceUrl || null,
+          proof: m.proof?.trim() || null,
+          credit: m.credit?.trim() || null,
+          ...(m.restrictions ? { restrictions: m.restrictions as Prisma.InputJsonValue } : {}),
+          expiresAt: m.expiresAt ?? null,
+          permissionId: m.permissionId ?? null,
+          createdBy: input.createdBy,
+        },
+      },
+    },
+  });
+  await audit(prisma, {
+    actor: input.createdBy,
+    action: 'library.video.add',
+    target: asset.id,
+    details: { origin: input.origin, partnerId: input.partnerId ?? null, bytes, mime },
+  });
+  return { asset, duplicate: false, sha256 };
 }
 
 export interface RevokeResult {

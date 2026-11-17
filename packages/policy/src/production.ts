@@ -1,6 +1,7 @@
 import { claimsToBeHuman } from './character';
 import { detectContentFlags, isSpoilerWindowActive, type SpoilerWindow } from './content';
 import { assertMediaImportAllowed } from './media-source';
+import { assertPartnerPermission, type PermissionState } from './partner';
 import { PolicyViolation } from './rules';
 
 /**
@@ -34,6 +35,8 @@ export interface ManifestInput {
   credit?: string | null | undefined;
   provider?: string | null | undefined;
   prompt?: string | null | undefined;
+  /** Permissão do parceiro (origem PARTNER). */
+  permission?: PermissionState | null | undefined;
 }
 
 /** Confere um manifesto antes de gravar (regra 1 e 2). Lança PolicyViolation com o motivo. */
@@ -60,11 +63,15 @@ export function assertManifestInput(m: ManifestInput): void {
       break;
     }
     case 'PARTNER':
-      // Permissão de parceiro (tipo, prova, condições, status) entra na Fase 4.
-      throw new PolicyViolation(
-        'PARTNER_PERMISSION_ACTIVE',
-        'Material de parceiro só entra com permissão registrada (tela Parceiros, Fase 4).',
-      );
+      // Regra 2: só com permissão registrada, ativa e que cubra o uso (cortes para react).
+      assertPartnerPermission(m.permission, 'REACT_CLIPS');
+      if (!m.credit || m.credit.trim().length < 2) {
+        throw new PolicyViolation(
+          'PARTNER_CONDITIONS',
+          'Material de parceiro precisa do crédito combinado no manifesto.',
+        );
+      }
+      break;
     case 'IMAGE_PROVIDER':
       if (!m.provider || !m.prompt) {
         throw new PolicyViolation(
@@ -96,6 +103,8 @@ export interface RenderableAsset {
     status: 'ACTIVE' | 'REVOKED';
     expiresAt?: Date | null;
   } | null;
+  /** Permissão do parceiro (origem PARTNER), lida do banco na hora do render. */
+  permission?: PermissionState | null;
 }
 
 /** Regra 1/2 no render: sem manifesto ativo (ou de parceiro sem permissão), não entra. */
@@ -123,10 +132,7 @@ export function assertAssetRenderable(asset: RenderableAsset, now: Date = new Da
     );
   }
   if (asset.origin === 'PARTNER') {
-    throw new PolicyViolation(
-      'PARTNER_PERMISSION_ACTIVE',
-      `Mídia de parceiro ${asset.id} sem permissão registrada (Fase 4).`,
-    );
+    assertPartnerPermission(asset.permission, 'REACT_CLIPS', now);
   }
 }
 

@@ -40,7 +40,7 @@ const PHASES = [
   },
   { n: 8, name: 'Produção na VPS', desc: 'Deploy, HTTPS, backups, monitoramento e alertas.' },
 ];
-const CURRENT_PHASE = 2;
+const CURRENT_PHASE = 4;
 
 export default async function OverviewPage() {
   const { settings, profileInfo } = await effectiveState();

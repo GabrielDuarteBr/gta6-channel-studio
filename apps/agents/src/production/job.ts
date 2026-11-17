@@ -2,7 +2,7 @@ import { ScriptMarkupError } from '@studio/avatar';
 import { audit } from '@studio/db';
 import { BudgetExceededError, LlmRefusalError } from '@studio/llm';
 import { PolicyViolation } from '@studio/policy';
-import { ScriptValidationError } from '@studio/production';
+import { ReactScriptError, ScriptValidationError } from '@studio/production';
 import { ProviderError } from '@studio/providers';
 import { deterministicJobId, UnrecoverableError } from '@studio/queue';
 import { ImageError } from '@studio/storage';
@@ -13,6 +13,8 @@ import {
   type ProductionContext,
   type ProductionResult,
 } from './pipeline';
+import { ReactRejectedError } from '../react/commentator';
+import { runReactProduction } from '../react/pipeline';
 import { ScriptRejectedError } from './writer';
 
 /** Id do job: um por produção e por pedido (minuto), para "tentar de novo" criar outro job. */
@@ -26,6 +28,8 @@ export function isPermanent(err: unknown): boolean {
     err instanceof PolicyViolation ||
     err instanceof ScriptRejectedError ||
     err instanceof ScriptValidationError ||
+    err instanceof ReactRejectedError ||
+    err instanceof ReactScriptError ||
     err instanceof ScriptMarkupError ||
     err instanceof BudgetExceededError ||
     err instanceof LlmRefusalError ||
@@ -41,7 +45,12 @@ export async function runProductionJob(
 ): Promise<ProductionResult> {
   const { productionId, real } = productionJobSchema.parse(raw);
   try {
-    return await runProduction(ctx, productionId, real ? { real } : {});
+    const prod = await ctx.prisma.production.findUniqueOrThrow({
+      where: { id: productionId },
+      select: { kind: true },
+    });
+    const run = prod.kind === 'REACT' ? runReactProduction : runProduction;
+    return await run(ctx, productionId, real ? { real } : {});
   } catch (err) {
     const permanent = isPermanent(err);
     const last = permanent || attempt.made + 1 >= attempt.max;

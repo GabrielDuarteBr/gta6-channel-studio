@@ -1,5 +1,5 @@
 import { Composition, staticFile } from 'remotion';
-import type { ThumbnailSpec, VideoPlan } from '@studio/production';
+import type { ReactPlan, ThumbnailSpec, VideoPlan } from '@studio/production';
 import { HelloZeca, helloZecaSchema } from './HelloZeca';
 import {
   calculateNewsVideoMetadata,
@@ -8,6 +8,12 @@ import {
   type NewsVideoProps,
 } from './news/NewsVideo';
 import { Thumbnail, thumbnailSchema, type ThumbnailProps } from './news/Thumbnail';
+import {
+  calculateReactShortMetadata,
+  ReactShort,
+  reactShortSchema,
+  type ReactShortProps,
+} from './react/ReactShort';
 import { RivePoc, rivePocSchema, type RivePocProps } from './RivePoc';
 import {
   calculateZecaClipMetadata,
@@ -100,6 +106,35 @@ const sampleThumb: ThumbnailSpec = {
 };
 const thumbDefaults: ThumbnailProps = { spec: sampleThumb, workBaseUrl: '', provisional: true };
 
+/** Plano de exemplo do react (o job sempre manda o real, com os clipes cortados). */
+const sampleReact: ReactPlan = {
+  width: 720,
+  height: 1280,
+  fps: 30,
+  durationSec: 6,
+  layout: 'tv',
+  voiceSrc: staticFile('zeca/silencio.wav'),
+  character: {
+    durationSec: 6,
+    expressions: [{ start: 0, end: 6, expression: 'feliz' }],
+    gestures: [],
+    mouthCues: [{ start: 0, end: 6, value: 'X' }],
+  },
+  blinkSeed: 7,
+  blocks: [
+    { kind: 'comment', start: 0, end: 2, clip: 0, spoken: 'Bora ver o clipe do parceiro.' },
+    { kind: 'clip', start: 2, end: 4, clip: 0, credit: 'Canal do Parceiro' },
+    { kind: 'comment', start: 4, end: 6, clip: 0, spoken: 'Repara na física do carro.' },
+  ],
+  clips: [],
+  captions: [{ start: 0, end: 2, text: 'Bora ver o clipe' }],
+  credit: 'Canal do Parceiro',
+  title: 'Exemplo de react',
+  channelName: 'Radar Neon',
+  aiNotice: 'Apresentador animado com voz sintética (IA)',
+};
+const reactDefaults: ReactShortProps = { plan: sampleReact, workBaseUrl: '', provisional: true };
+
 export function Root() {
   return (
     <>
@@ -144,6 +179,17 @@ export function Root() {
         fps={30}
         width={1280}
         height={720}
+      />
+      <Composition
+        id="ReactShort"
+        component={ReactShort}
+        schema={reactShortSchema}
+        defaultProps={reactDefaults}
+        calculateMetadata={calculateReactShortMetadata}
+        durationInFrames={180}
+        fps={30}
+        width={720}
+        height={1280}
       />
       <Composition
         id="Thumbnail"

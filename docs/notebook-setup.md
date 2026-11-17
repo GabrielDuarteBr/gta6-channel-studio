@@ -445,6 +445,107 @@ Com custo real (precisa das chaves): `make accept-3 REAL=1`.
 - **Arte**: cenários gerados. **Aprovar** deixa o Roteirista reaproveitar (sem pagar de novo);
   **Gerar variação** faz outra versão; **Descartar** tira dos próximos vídeos.
 
+## 12. Fase 4: parceiros e Short de react
+
+Criadores de GTA 6 que **autorizam por escrito** o uso de trechos dos vídeos deles viram
+**parceiros**. Com um arquivo do parceiro, o estúdio monta um **Short de react**: o trecho toca
+com o crédito na tela e, quando o Zeca comenta, o trecho **pausa**. O clipe nunca passa de metade
+do Short (padrão 45%), e "uau" ou "olha isso" não contam como comentário. Nada é publicado e
+**nenhuma mensagem é enviada pelo estúdio**: ele só rascunha.
+
+### 12.1 Como funciona
+
+1. **Caçador de parceiros** (toda semana e pelo botão): busca canais de GTA no YouTube só pelos
+   dados públicos (nome, descrição, inscritos), dá uma nota com o Claude Haiku e escreve o
+   **rascunho da mensagem** pedindo a permissão. Frase como "cortes liberados" na descrição vira
+   **indício**, nunca permissão. Você copia o rascunho, revisa e envia por conta própria.
+2. Quando o criador responder por escrito, registre a **permissão** (tela Parceiros): como ele
+   autorizou (e-mail, mensagem direta, contrato), a prova (o que ele escreveu, quando e onde, ou o
+   print), o crédito, o link, a hashtag, se pode monetizar e um teto de segundos por Short.
+3. **Arquivos**: o parceiro manda o vídeo original por **link do Dropbox ou do Google Drive**
+   (arquivo ou pasta), ou você envia pelo painel. **Nada vem do YouTube.** Cada arquivo vai para a
+   Biblioteca com o manifesto ligado à permissão e é **transcrito no seu notebook** (faster-whisper,
+   grátis): trechos de fala, música (marcada pelo Whisper) e trocas de cena.
+4. **Áudio do clipe**: por padrão vai **só a voz do parceiro**; música, filme e TV de terceiros
+   ficam mudos, e trechos com música não entram no corte. Se você ouvir o arquivo e não houver nada
+   de terceiros, marque "Ouvi: sem música, filme ou TV de terceiros" e o áudio original vai inteiro.
+5. **Produzir Short de react**: o código escolhe trechos candidatos; o **Comentarista** (Claude
+   Sonnet 5.5, vendo um quadro de cada trecho e a transcrição) escolhe e escreve as falas; o código
+   confere as regras; a voz é gravada; os trechos são cortados; o render monta o Short num dos 3
+   layouts (TV neon, tela dividida, cinema, em rodízio); o **Revisor visual** confere crédito,
+   pausa e legendas. A descrição sai com o crédito, o link e a hashtag do parceiro.
+6. **Revogar** uma permissão tira os direitos dos arquivos dela (o render recusa) e mostra quais
+   vídeos usaram esses arquivos. **Suspender** trava sem apagar nada.
+
+Custo estimado por Short de react: **≈ R$ 0,50** (Comentarista e Revisor; a transcrição é local e a
+voz fica na cota grátis). O Caçador custa centavos por semana. Os Shorts de react contam no limite
+diário de Shorts.
+
+A imagem do worker de mídia passa a ter ~2,8 GB (o modelo Whisper "small" e as bibliotecas de
+transcrição). A primeira subida depois de atualizar demora mais.
+
+### 12.2 Chave do Google Drive (opcional, navegador do Windows, ~5 min, grátis)
+
+Só para importar arquivos que o parceiro mandar pelo **Google Drive** (Dropbox e envio pelo painel
+funcionam sem chave). Mesmo projeto `radar-neon`.
+
+1. Abra https://console.cloud.google.com e confira o projeto `radar-neon` no topo.
+2. Menu ☰ → **APIs e serviços** → **Biblioteca** → procure **Google Drive API** → **Ativar**.
+3. Menu ☰ → **APIs e serviços** → **Credenciais** → **Criar credenciais** → **Chave de API**.
+   **Restrições de API** → **Restringir chave** → marque só **Google Drive API** → **Salvar**.
+   Copie a chave (começa com `AIza`). **Não cole no chat.**
+4. O `rodar-fase-4.bat` pede a chave, testa e grava no `.env` como `GOOGLE_DRIVE_API_KEY`.
+
+Peça ao parceiro para compartilhar o arquivo ou a pasta como **"Qualquer pessoa com o link"**.
+
+### Jeito rápido: `windows/rodar-fase-4.bat` (recomendado)
+
+Dê **dois cliques** no `rodar-fase-4.bat`. Ele:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop;
+2. troca o projeto para a versão da Fase 4;
+3. confere as chaves do YouTube (Caçador) e da Anthropic e pede a do Google Drive (opcional);
+4. sobe o estúdio (a primeira vez baixa o modelo Whisper);
+5. pergunta se roda **1 Short de react de verdade** (Claude + voz, ~R$ 0,50) para medir o custo;
+6. roda o `make accept-4` (de 30 a 60 minutos): parceiro de teste com permissão, vídeo sintético
+   importado e transcrito, Short de react, render repetido quadro a quadro, YouTube recusado,
+   produção parada sem permissão, Caçador e todos os testes;
+7. põe na Área de Trabalho o resultado (`radar-neon-aceite-fase-4.txt`) e o vídeo
+   (`radar-neon-fase4-react.mp4`);
+8. abre a tela **Parceiros**.
+
+### Pelo Ubuntu (mesmo caminho, à mão)
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin
+```
+
+```bash
+git checkout fase-4-parceiros
+```
+
+```bash
+make accept-4
+```
+
+Com custo real (precisa das chaves): `make accept-4 REAL=1`. Caçador agora: `make parceiros`.
+
+### O que olhar no painel (tela Parceiros)
+
+- **Candidatos**: nota de encaixe, indício na descrição e o rascunho da mensagem (botão **Copiar
+  mensagem**). "Marquei como enviada" só anota que você mandou.
+- **Parceiros**: permissões com o status (ativa, suspensa, revogada), importar por link ou enviar
+  arquivo, prévia de cada vídeo com a transcrição, a marca do áudio e o botão **Produzir Short de
+  react**.
+- **Produção**: o Short de react com a porcentagem de clipe e de comentário, o layout, o tipo de
+  áudio, se o parceiro permite monetizar e a descrição pronta com o crédito.
+- **Configurações → Parceiros / Short de react**: Caçador semanal, termos da busca, limites dos
+  arquivos, duração-alvo, teto de clipe (nunca acima de 50%) e layouts do rodízio.
+
 ## Valores em reais
 
 Todo valor do painel e dos relatórios aparece em **reais**. As APIs cobram em dólar; o estúdio

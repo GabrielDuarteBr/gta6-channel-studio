@@ -20,7 +20,7 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'error' | 'i
     DRAFT: { label: 'rascunho', tone: 'muted' },
     QUEUED: { label: 'na fila', tone: 'info' },
     SCRIPTING: { label: 'roteiro', tone: 'warn' },
-    ART: { label: 'imagens', tone: 'warn' },
+    ART: { label: 'imagens/cortes', tone: 'warn' },
     VOICE: { label: 'voz', tone: 'warn' },
     RENDERING: { label: 'render', tone: 'warn' },
     REVIEWING: { label: 'revisão', tone: 'warn' },
@@ -36,12 +36,20 @@ interface Outputs {
   thumbnails?: string[];
   thumbnail?: string | null;
   durationSec?: number;
+  /** React (Fase 4) */
+  clipRatio?: number;
+  commentRatio?: number;
+  description?: string;
+  monetization?: string;
+  credit?: string;
+  layout?: string;
+  audioMode?: string;
 }
 interface Verdict {
   approved: boolean;
   summary: string;
   round: number;
-  issues: Array<{ target: string; index: number; severity: string; kind: string; detail: string }>;
+  issues: Array<{ target?: string; index: number; severity: string; kind: string; detail: string }>;
 }
 interface RenderRound {
   round: number;
@@ -163,14 +171,23 @@ export default async function ProductionPage() {
                     {status.label}
                   </Badge>
                   <Badge tone="muted">{p.format === 'SHORT' ? 'Short 9:16' : 'Longo 16:9'}</Badge>
-                  {p.story.isRumor ? <Badge tone="warn">rumor</Badge> : null}
+                  {p.kind === 'REACT' ? (
+                    <Badge tone="info" data-testid="tipo-react">
+                      react · {p.partner?.name ?? 'parceiro'}
+                    </Badge>
+                  ) : null}
+                  {p.story?.isRumor ? <Badge tone="warn">rumor</Badge> : null}
                   <span className="text-xs text-haze-500">
                     {fmt.format(p.createdAt)} · custo {fx.formatUsd(p.costUsd)}
                     {p.reviewRound ? ` · ${p.reviewRound} volta(s) de revisão` : ''}
                   </span>
                 </div>
                 <p className="mt-2 font-medium text-white">
-                  {p.title ?? p.story.titlePt ?? p.story.title}
+                  {p.title ??
+                    p.story?.titlePt ??
+                    p.story?.title ??
+                    p.sourceAsset?.title ??
+                    'Short de react'}
                 </p>
                 {p.step ? <p className="text-xs text-haze-400">{p.step}</p> : null}
                 {p.error ? (
@@ -205,6 +222,44 @@ export default async function ProductionPage() {
                           Thumbnail escolhida pelo Revisor em destaque.
                         </p>
                       ) : null}
+                      {p.kind === 'REACT' && out.clipRatio !== undefined ? (
+                        <div className="space-y-1 text-xs" data-testid="dados-react">
+                          <p className="text-haze-300">
+                            Clipe do parceiro:{' '}
+                            <strong className="text-white">
+                              {Math.round(out.clipRatio * 100)}%
+                            </strong>{' '}
+                            · comentário do Zeca:{' '}
+                            <strong className="text-white">
+                              {Math.round((out.commentRatio ?? 0) * 100)}%
+                            </strong>{' '}
+                            · layout {out.layout} ·{' '}
+                            {out.audioMode === 'full'
+                              ? 'áudio original inteiro'
+                              : 'só a voz do parceiro'}
+                          </p>
+                          <p
+                            className={out.monetization === 'allowed' ? 'text-palm' : 'text-sunset'}
+                          >
+                            {out.monetization === 'allowed'
+                              ? 'O parceiro permite monetizar.'
+                              : 'O parceiro NÃO permite monetizar este Short.'}
+                          </p>
+                          {out.description ? (
+                            <details>
+                              <summary className="cursor-pointer text-haze-300">
+                                Descrição (com crédito: {out.credit})
+                              </summary>
+                              <pre
+                                className="mt-1 whitespace-pre-wrap rounded bg-night-900 p-2 text-haze-300"
+                                data-testid="descricao-react"
+                              >
+                                {out.description}
+                              </pre>
+                            </details>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {last ? (
                         <div className="rounded-lg bg-night-900 p-2 text-xs" data-testid="revisao">
                           <p className={last.approved ? 'text-palm' : 'text-alert'}>
@@ -215,9 +270,9 @@ export default async function ProductionPage() {
                             <ul className="mt-1 list-disc pl-4 text-haze-400">
                               {last.issues.map((i, k) => (
                                 <li key={k}>
-                                  {i.target === 'quadro'
-                                    ? `quadro ${i.index}`
-                                    : `thumbnail ${i.index}`}{' '}
+                                  {i.target === 'thumbnail'
+                                    ? `thumbnail ${i.index}`
+                                    : `quadro ${i.index}`}{' '}
                                   · {i.severity} · {i.detail}
                                 </li>
                               ))}

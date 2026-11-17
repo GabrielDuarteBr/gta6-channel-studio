@@ -78,6 +78,48 @@ const searchSchema = z.object({
     .default([]),
 });
 
+const channelSearchSchema = z.object({
+  items: z.array(z.object({ id: z.object({ channelId: z.string().optional() }) })).default([]),
+});
+
+const channelInfoSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string(),
+        snippet: z
+          .object({
+            title: z.string(),
+            description: z.string().optional(),
+            customUrl: z.string().optional(),
+            country: z.string().optional(),
+          })
+          .partial()
+          .optional(),
+        statistics: z
+          .object({
+            subscriberCount: z.string().optional(),
+            videoCount: z.string().optional(),
+            hiddenSubscriberCount: z.boolean().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .default([]),
+});
+
+/** Canal do YouTube (só metadados públicos: nome, descrição, números). */
+export interface YouTubeChannel {
+  channelId: string;
+  title: string;
+  description: string;
+  /** @handle (customUrl), quando o canal tem. */
+  handle?: string | undefined;
+  country?: string | undefined;
+  subscribers?: number | undefined;
+  videoCount?: number | undefined;
+}
+
 export interface YouTubeVideo {
   videoId: string;
   title: string;
@@ -212,6 +254,54 @@ export class YouTubeClient {
     return this.withStats(videos);
   }
 
+  /** Busca de canais (balde de buscas: 1 chamada) — usada pelo Caçador de parceiros. */
+  async searchChannels(
+    query: string,
+    max = 15,
+    opts: { language?: string; region?: string } = {},
+  ): Promise<string[]> {
+    const data = await this.get(
+      'search',
+      {
+        part: 'snippet',
+        q: query,
+        type: 'channel',
+        order: 'relevance',
+        maxResults: String(Math.min(50, Math.max(1, max))),
+        ...(opts.language ? { relevanceLanguage: opts.language } : {}),
+        ...(opts.region ? { regionCode: opts.region } : {}),
+      },
+      channelSearchSchema,
+      'search.list',
+    );
+    return [...new Set(data.items.map((i) => i.id.channelId).filter((x): x is string => !!x))];
+  }
+
+  /** Dados públicos de até 50 canais (1 unidade) ou de um @handle. */
+  async channels(ref: { ids: string[] } | { handle: string }): Promise<YouTubeChannel[]> {
+    const params: Record<string, string> = { part: 'snippet,statistics', maxResults: '50' };
+    if ('ids' in ref) {
+      if (ref.ids.length === 0) return [];
+      params.id = ref.ids.slice(0, 50).join(',');
+    } else {
+      params.forHandle = ref.handle.startsWith('@') ? ref.handle : `@${ref.handle}`;
+    }
+    const data = await this.get('channels', params, channelInfoSchema, 'default');
+    return data.items.map((c) => {
+      const st = c.statistics;
+      return {
+        channelId: c.id,
+        title: decodeEntities(c.snippet?.title ?? c.id),
+        description: c.snippet?.description ?? '',
+        handle: c.snippet?.customUrl,
+        country: c.snippet?.country,
+        subscribers:
+          st?.subscriberCount && !st.hiddenSubscriberCount ? Number(st.subscriberCount) : undefined,
+        videoCount: st?.videoCount ? Number(st.videoCount) : undefined,
+      };
+    });
+  }
+
   private async withStats(videos: YouTubeVideo[]): Promise<YouTubeVideo[]> {
     if (videos.length === 0) return videos;
     const stats = await this.get(
@@ -235,3 +325,31 @@ export class YouTubeClient {
 
 /** Link do vídeo para a pauta (só o link; nada é baixado). */
 export const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
+
+/** Link do canal (só para abrir no navegador; nada é baixado). */
+export const youtubeChannelUrl = (channelId: string, handle?: string) =>
+  handle
+    ? `https://www.youtube.com/${handle.startsWith('@') ? handle : `@${handle}`}`
+    : `https://www.youtube.com/channel/${channelId}`;
+
+/**
+ * Link de canal colado pelo dono → @handle ou id do canal (UC...). Vídeos e outros links
+ * não servem: o Caçador só lê dados públicos do canal.
+ */
+export function parseChannelRef(raw: string): { handle: string } | { id: string } | null {
+  let url: URL;
+  try {
+    url = new URL(
+      raw.trim().startsWith('@') ? `https://www.youtube.com/${raw.trim()}` : raw.trim(),
+    );
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^(www|m)\./, '');
+  if (host !== 'youtube.com') return null;
+  const parts = url.pathname.split('/').filter(Boolean);
+  const first = parts[0] ?? '';
+  if (first.startsWith('@') && /^@[A-Za-z0-9._-]{3,30}$/.test(first)) return { handle: first };
+  if (first === 'channel' && /^UC[A-Za-z0-9_-]{22}$/.test(parts[1] ?? '')) return { id: parts[1]! };
+  return null;
+}
