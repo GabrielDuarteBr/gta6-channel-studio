@@ -11,11 +11,14 @@ export function SettingForm({
   title,
   description,
   children,
+  footer,
 }: {
   settingKey: string;
   title: string;
   description?: string;
   children: ReactNode;
+  /** Fora do <form> (botões com formulário próprio: formulário dentro de formulário não vale). */
+  footer?: ReactNode;
 }) {
   const [state, action, pending] = useActionState<SaveState, FormData>(saveSettingAction, {});
   return (
@@ -43,6 +46,7 @@ export function SettingForm({
           ) : null}
         </div>
       </form>
+      {footer ? <div className="mt-4 border-t border-night-700 pt-4">{footer}</div> : null}
     </Card>
   );
 }

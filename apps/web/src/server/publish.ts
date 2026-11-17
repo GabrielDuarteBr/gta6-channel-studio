@@ -50,7 +50,7 @@ export const enqueueCompliance = (productionId: string) =>
     'llm',
     COMPLIANCE_JOB,
     { productionId },
-    deterministicJobId('llm', COMPLIANCE_JOB, productionId, minute()),
+    deterministicJobId('llm', COMPLIANCE_JOB, productionId, new Date().toISOString()),
   );
 
 export const enqueueUpload = (publicationId: string) =>
@@ -58,7 +58,7 @@ export const enqueueUpload = (publicationId: string) =>
     'upload',
     UPLOAD_JOB,
     { publicationId },
-    deterministicJobId('upload', UPLOAD_JOB, publicationId, minute()),
+    deterministicJobId('upload', UPLOAD_JOB, publicationId, new Date().toISOString()),
     { attempts: 8, backoff: { type: 'exponential', delay: 60_000 } },
   );
 

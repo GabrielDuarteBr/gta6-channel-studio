@@ -181,7 +181,7 @@ async function main(): Promise<void> {
       COMPLIANCE_JOB,
       { productionId },
       {
-        jobId: deterministicJobId('llm', COMPLIANCE_JOB, productionId, minute()),
+        jobId: deterministicJobId('llm', COMPLIANCE_JOB, productionId, new Date().toISOString()),
         attempts: 2,
       },
     );
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
       UPLOAD_JOB,
       { publicationId },
       {
-        jobId: deterministicJobId('upload', UPLOAD_JOB, publicationId, minute()),
+        jobId: deterministicJobId('upload', UPLOAD_JOB, publicationId, new Date().toISOString()),
         attempts: 8,
         backoff: { type: 'exponential', delay: 60_000 },
       },

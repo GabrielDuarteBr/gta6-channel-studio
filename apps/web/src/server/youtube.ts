@@ -15,6 +15,11 @@ import { encryptionEnvSchema, loadEncryptionKey, parseEnv } from '@studio/shared
 
 export const OAUTH_STATE_COOKIE = 'yt_oauth_state';
 
+/** Endereço público do painel (AUTH_URL): base dos redirecionamentos e do retorno do Google. */
+export function appUrl(path: string): URL {
+  return new URL(path, (process.env.AUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '') + '/');
+}
+
 export function oauthClient(): OAuthClient | null {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;

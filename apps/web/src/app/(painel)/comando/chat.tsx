@@ -148,7 +148,12 @@ export function CommandChat({
                   {tools.length ? (
                     <div className="mb-2 flex flex-wrap gap-1" data-testid="ferramentas">
                       {tools.map((t, i) => (
-                        <Badge key={i} tone={t.ok ? 'info' : 'error'} title={t.result}>
+                        <Badge
+                          key={i}
+                          tone={t.ok ? 'info' : 'error'}
+                          title={t.result}
+                          data-ok={t.ok}
+                        >
                           <Wrench className="size-3" /> {LABELS[t.name] ?? t.name}
                         </Badge>
                       ))}

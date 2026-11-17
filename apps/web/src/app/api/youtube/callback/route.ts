@@ -1,14 +1,14 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/auth';
-import { finishConnection, OAUTH_STATE_COOKIE } from '@/server/youtube';
+import { appUrl, finishConnection, OAUTH_STATE_COOKIE } from '@/server/youtube';
 
 /** Volta do Google: confere o "state", troca o código e guarda o token cifrado. */
 export async function GET(req: NextRequest): Promise<Response> {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.redirect(new URL('/login', req.url));
+  if (!session?.user?.id) return NextResponse.redirect(appUrl('/login'));
   const back = (status: string, msg?: string) => {
-    const u = new URL('/configuracoes', req.url);
+    const u = appUrl('/configuracoes');
     u.searchParams.set('youtube', status);
     if (msg) u.searchParams.set('msg', msg.slice(0, 200));
     u.hash = 'youtube';

@@ -35,8 +35,9 @@ test('comando: o Diretor usa as ferramentas e publicar vira um pedido para você
 
   // Publicar é ação no canal: vira pedido; aqui o dono recusa (nada é enviado).
   const pub = await ask('Pode publicar o vídeo pronto');
-  const tools = await pub.getByTestId('ferramentas').innerText();
-  if (tools.includes('pediu publicação')) {
+  // Só quando a ferramenta deu certo (vídeo pronto e aprovado pela Conformidade) há pedido.
+  const created = pub.locator('[data-ok="true"]', { hasText: 'pediu publicação' });
+  if (await created.count()) {
     const pedido = page.getByTestId('pedido').first();
     await expect(pedido).toContainText('sobe privado e agendado');
     await pedido.getByRole('button', { name: 'Recusar' }).click();
@@ -85,7 +86,10 @@ test('aprovação: Conformidade aprova, dono edita o título e agenda (envio sim
   await expect(item.getByTestId('form-aprovar').getByRole('alert')).toContainText('30 minutos');
   await when.fill(suggested);
   await item.getByTestId('aprovar').click();
-  await expect(item.getByTestId('form-aprovar').getByRole('status')).toContainText('Modo simulado');
+  // Aprovado: sai da fila "Esperando você" e aparece em Publicações.
+  await expect(
+    page.getByTestId('item-aprovacao').filter({ hasText: 'o que a Rockstar confirmou' }),
+  ).toHaveCount(0, { timeout: 15_000 });
 
   const pub = page
     .getByTestId('publicacao')
@@ -124,8 +128,8 @@ test('configurações: YouTube sem cliente OAuth, produção diária e piloto au
 
   const daily = page.getByTestId('form-schedule.daily');
   await expect(daily.getByLabel('Horário')).toHaveValue('07:41');
-  await daily.getByTestId('rodar-diaria').click();
-  await expect(daily.getByText('Na fila. Veja em Produção.')).toBeVisible();
+  await page.getByTestId('rodar-diaria').click();
+  await expect(page.getByText('Na fila. Veja em Produção.')).toBeVisible();
 
   // Ligar o piloto automático exige o código do app autenticador.
   const pilot = page.getByTestId('form-mode.autopilot');
@@ -134,7 +138,9 @@ test('configurações: YouTube sem cliente OAuth, produção diária e piloto au
   await pilot.getByRole('button', { name: 'Salvar' }).click();
   await expect(pilot.getByRole('alert')).toContainText('Código do app autenticador inválido');
 
-  // Código válido (passo seguinte ao do login, que não pode ser reutilizado).
+  // Código válido (passo seguinte ao do login, que não pode ser reutilizado). O formulário
+  // volta ao estado salvo depois de cada envio, então marca de novo.
+  await pilot.getByTestId('toggle-piloto').check({ force: true });
   await pilot.getByLabel(/Código do app autenticador/).fill(await totpAt(30));
   await pilot.getByRole('button', { name: 'Salvar' }).click();
   await expect(pilot.getByRole('status')).toContainText('Salvo');

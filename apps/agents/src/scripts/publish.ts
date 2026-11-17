@@ -77,7 +77,10 @@ async function fluxo() {
       await llm.add(
         COMPLIANCE_JOB,
         { productionId: prod.id },
-        { jobId: deterministicJobId('llm', COMPLIANCE_JOB, prod.id, minute()), attempts: 2 },
+        {
+          jobId: deterministicJobId('llm', COMPLIANCE_JOB, prod.id, new Date().toISOString()),
+          attempts: 2,
+        },
       );
     }
     const done = await waitFor(

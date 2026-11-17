@@ -119,6 +119,7 @@ export default async function SettingsPage({
       <div className="grid gap-4 lg:grid-cols-2">
         <SettingForm
           settingKey="schedule.daily"
+          footer={<RunDailyButton />}
           title="Produção diária"
           description="No horário marcado (Brasília), o estúdio escolhe as melhores histórias que podem virar vídeo e um vídeo de parceiro novo, dentro dos limites do dia e do teto de gasto. Tudo vai para a Aprovação. Se o notebook estiver dormindo, roda quando ele acordar."
         >
@@ -167,7 +168,6 @@ export default async function SettingsPage({
               />
             </div>
           </div>
-          <RunDailyButton />
         </SettingForm>
 
         <SettingForm
