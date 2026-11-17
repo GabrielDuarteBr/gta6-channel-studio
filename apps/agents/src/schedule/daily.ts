@@ -175,8 +175,7 @@ export async function ranToday(prisma: PrismaClient, now = new Date()): Promise<
   });
   return rows.some(
     (r) =>
-      channelDay(r.at) === channelDay(now) &&
-      !(r.details as { force?: boolean } | null)?.force,
+      channelDay(r.at) === channelDay(now) && !(r.details as { force?: boolean } | null)?.force,
   );
 }
 

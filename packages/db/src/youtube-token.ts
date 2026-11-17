@@ -50,11 +50,15 @@ export async function saveYouTubeToken(
   const where = { provider_accountLabel: { provider: YOUTUBE_PROVIDER, accountLabel: ACCOUNT } };
   const existing = await prisma.oAuthToken.findUnique({ where });
   const refresh = t.refreshToken ?? (existing ? null : undefined);
-  if (refresh === undefined) throw new Error('o Google não devolveu o refresh token (conecte de novo)');
+  if (refresh === undefined)
+    throw new Error('o Google não devolveu o refresh token (conecte de novo)');
   const channelScope = t.channel
     ? `canal:${t.channel.id}|${t.channel.title}`
     : existing?.scopes.find((s) => s.startsWith('canal:'));
-  const scopes = [...t.scopes.filter((s) => !s.startsWith('canal:')), ...(channelScope ? [channelScope] : [])];
+  const scopes = [
+    ...t.scopes.filter((s) => !s.startsWith('canal:')),
+    ...(channelScope ? [channelScope] : []),
+  ];
   const data = {
     scopes,
     accessTokenEnc: encryptSecret(t.accessToken, key, ctx('access')),
@@ -83,7 +87,10 @@ export interface DecryptedToken {
   expiresAt: Date | null;
 }
 
-export async function readYouTubeToken(prisma: PrismaClient, key: Buffer): Promise<DecryptedToken | null> {
+export async function readYouTubeToken(
+  prisma: PrismaClient,
+  key: Buffer,
+): Promise<DecryptedToken | null> {
   const row = await prisma.oAuthToken.findUnique({
     where: { provider_accountLabel: { provider: YOUTUBE_PROVIDER, accountLabel: ACCOUNT } },
   });
@@ -95,7 +102,11 @@ export async function readYouTubeToken(prisma: PrismaClient, key: Buffer): Promi
   };
 }
 
-export async function markYouTubeToken(prisma: PrismaClient, status: 'invalid' | 'revoked', error: string) {
+export async function markYouTubeToken(
+  prisma: PrismaClient,
+  status: 'invalid' | 'revoked',
+  error: string,
+) {
   await prisma.oAuthToken.updateMany({
     where: { provider: YOUTUBE_PROVIDER, accountLabel: ACCOUNT },
     data: { status, lastError: error.slice(0, 300), lastCheckedAt: new Date() },
@@ -103,5 +114,7 @@ export async function markYouTubeToken(prisma: PrismaClient, status: 'invalid' |
 }
 
 export async function deleteYouTubeToken(prisma: PrismaClient): Promise<void> {
-  await prisma.oAuthToken.deleteMany({ where: { provider: YOUTUBE_PROVIDER, accountLabel: ACCOUNT } });
+  await prisma.oAuthToken.deleteMany({
+    where: { provider: YOUTUBE_PROVIDER, accountLabel: ACCOUNT },
+  });
 }

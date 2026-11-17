@@ -185,7 +185,10 @@ export const SETTINGS = {
     .object({
       categoryId: z.string().regex(/^\d{1,3}$/),
       defaultTags: z.array(z.string().min(2).max(40)).max(15),
-      publishTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).min(1).max(6),
+      publishTimes: z
+        .array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/))
+        .min(1)
+        .max(6),
       notifySubscribers: z.boolean(),
     })
     .default({
