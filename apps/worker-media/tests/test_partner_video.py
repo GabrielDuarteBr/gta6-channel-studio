@@ -172,7 +172,8 @@ def test_analise_transcreve_a_fala_e_separa_o_que_nao_e_voz(work_root: Path) -> 
         check=True,
     )
     _make_clip(work_root, speech=fala)
-    r = TestClient(app).post("/video/analyze", json={"video": "parceiro.mp4", "language": "pt"})
+    # Sem informar o idioma: português por padrão (a voz sintética não vira latim).
+    r = TestClient(app).post("/video/analyze", json={"video": "parceiro.mp4"})
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["language"] == "pt"

@@ -26,6 +26,11 @@ WHISPER_THREADS = int(os.environ.get("WHISPER_THREADS", "2"))
 SAMPLE_RATE = 16000
 MAX_SEGMENTS = 2000
 
+# Idiomas dos parceiros: português por padrão; inglês ou espanhol só com detecção confiante
+# (voz sintética ou ruído de jogo às vezes faz o Whisper "achar" latim e não transcrever nada).
+PARTNER_LANGUAGES = ("pt", "en", "es")
+LANGUAGE_CONFIDENCE = 0.6
+
 MUSIC_MARK = re.compile(r"♪|♫|\[(m[uú]sica|music)\]|\((m[uú]sica|music)\)", re.IGNORECASE)
 
 # Uma análise por vez: o modelo ocupa ~1 GB e o container tem 2 GB.
@@ -63,6 +68,23 @@ def _merge(ranges: list[tuple[float, float]], gap: float) -> list[tuple[float, f
         else:
             merged.append((a, b))
     return merged
+
+
+def pick_language(audio, speech: list[tuple[float, float]]) -> str:
+    """Português (idioma do canal e dos parceiros), salvo inglês ou espanhol com confiança alta.
+
+    A detecção automática erra com voz sintética ou ruído de jogo (já "achou" latim), então só
+    troca de idioma quando tem certeza.
+    """
+    if speech:
+        a, b = speech[0][0], min(speech[0][0] + 30.0, speech[-1][1])
+        sample = audio[int(a * SAMPLE_RATE) : int(b * SAMPLE_RATE)]
+        if len(sample) > SAMPLE_RATE:
+            audio = sample
+    lang, prob, _probs = _model().detect_language(audio)
+    if lang in PARTNER_LANGUAGES and lang != "pt" and prob >= LANGUAGE_CONFIDENCE:
+        return lang
+    return "pt"
 
 
 def loudness_per_second(samples, rate: int = SAMPLE_RATE) -> list[float]:
@@ -110,6 +132,8 @@ def analyze_video(rel: str, language: str | None = None) -> dict:
         speech = _merge(
             [(s["start"] / SAMPLE_RATE, s["end"] / SAMPLE_RATE) for s in stamps], gap=0.25
         )
+        if language is None:
+            language = pick_language(audio, speech)
         segments_iter, info = _model().transcribe(
             audio,
             language=language,

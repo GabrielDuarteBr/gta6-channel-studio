@@ -265,6 +265,66 @@ d('parceiros: importação, Caçador e Short de react', () => {
     ).toBe(3);
   });
 
+  it('mesmo arquivo de outro parceiro: recusa definitiva; falha de rede na última tentativa: "falhou"', async () => {
+    const a = await seedPartner(prisma);
+    const b = await prisma.partner.create({
+      data: {
+        name: 'Outro',
+        channelUrl: 'https://www.youtube.com/@outro',
+        stage: 'PARTNER',
+        discoveredBy: 'owner',
+      },
+    });
+    const bPerm = await prisma.partnerPermission.create({
+      data: {
+        partnerId: b.id,
+        type: 'REACT_CLIPS',
+        proofKind: 'EMAIL',
+        proof: 'E-mail de 11/11/2026: autorizo o Radar Neon a usar cortes em Shorts de react.',
+        grantedAt: new Date('2026-11-11T12:00:00Z'),
+        conditions: { ...conditions, credit: 'Outro' },
+        createdBy: 'owner',
+      },
+    });
+    const ok: FetchLike = async () => new Response(FAKE_MP4);
+    const mk = (partnerId: string, permissionId: string) =>
+      prisma.partnerImport.create({
+        data: {
+          partnerId,
+          permissionId,
+          source: 'dropbox',
+          url: 'https://www.dropbox.com/s/x/a.mp4',
+          createdBy: 'owner',
+        },
+      });
+    const first = await mk(a.partner.id, a.permission.id);
+    expect((await runPartnerImport(partnerCtx(ok, fakeServices().media), first.id)).status).toBe(
+      'DONE',
+    );
+    const second = await mk(b.id, bPerm.id);
+    await expect(runPartnerImport(partnerCtx(ok, fakeServices().media), second.id)).rejects.toThrow(
+      /outro parceiro/,
+    );
+    expect(
+      (await prisma.partnerImport.findUniqueOrThrow({ where: { id: second.id } })).status,
+    ).toBe('FAILED');
+
+    const down: FetchLike = async () => new Response('fora', { status: 503 });
+    const third = await mk(a.partner.id, a.permission.id);
+    await expect(
+      runPartnerImport(partnerCtx(down, fakeServices().media), third.id),
+    ).rejects.toThrow();
+    expect((await prisma.partnerImport.findUniqueOrThrow({ where: { id: third.id } })).status).toBe(
+      'QUEUED',
+    );
+    await expect(
+      runPartnerImport(partnerCtx(down, fakeServices().media), third.id, { lastAttempt: true }),
+    ).rejects.toThrow();
+    expect((await prisma.partnerImport.findUniqueOrThrow({ where: { id: third.id } })).status).toBe(
+      'FAILED',
+    );
+  });
+
   it('Google Drive: chave no cabeçalho (nunca na URL) e mensagem clara se a Drive API estiver desligada', async () => {
     const { partner, permission } = await seedPartner(prisma);
     const calls: Array<{ url: string; key: string | null }> = [];

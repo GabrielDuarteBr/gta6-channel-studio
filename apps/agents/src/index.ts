@@ -204,7 +204,12 @@ async function main(): Promise<void> {
     createWorker(
       'media',
       async (job) => {
-        if (job.name === PARTNER_IMPORT_JOB) return runPartnerImportJob(partnerCtx, job.data);
+        if (job.name === PARTNER_IMPORT_JOB) {
+          return runPartnerImportJob(partnerCtx, job.data, {
+            made: job.attemptsMade,
+            max: job.opts.attempts ?? 1,
+          });
+        }
         if (job.name === ANALYZE_JOB) return runAnalyzeJob(partnerCtx, job.data);
         throw new Error(`job desconhecido na fila media: ${job.name}`);
       },

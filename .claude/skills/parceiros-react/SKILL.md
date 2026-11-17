@@ -47,6 +47,19 @@ description: Como parceiros, permissões e o Short de react funcionam (Caçador,
 - O rascunho de mensagem nunca é enviado; não crie ferramenta que envie.
 - Condições do parceiro na descrição (crédito, link, hashtag) e a monetização no `outputs`.
 
+## Render repetível (ReactShort)
+Dois renders do mesmo plano têm de dar os mesmos quadros (`react.ts --repetir`). O que já quebrou
+isso e não pode voltar:
+- redimensionar o Zeca durante o vídeo ou ter um segundo Zeca pequeno (o Chrome redesenha a
+  estampa da camisa de forma assíncrona) — o Zeca tem tamanho e lugar fixos;
+- caixa do Zeca passando da borda do quadro — fica inteira dentro;
+- área do clipe sem camada própria (`willChange/translateZ`) — cada quadro novo do clipe fazia o
+  Chrome redesenhar a vizinhança no meio do render;
+- texto dentro do SVG do Zeca colado na borda inferior (selo "arte provisória") — o selo vai em
+  HTML, abaixo do aviso de IA.
+Para investigar: renderize a mesma faixa 2× (`remotion render ... --frames=A-B`) e compare com
+`framemd5`; a sequência PNG (`--sequence`) pode sair igual mesmo quando o MP4 não sai.
+
 ## Testar
 - `packages/policy/test/partner.test.ts`, `packages/production/test/react.test.ts`.
 - `apps/agents/test/partners.integration.test.ts` (Dropbox, Drive, bloqueios, Caçador, react com

@@ -83,7 +83,8 @@ test('parceiros: link do YouTube é recusado e o vídeo enviado vira transcriç�
     });
   }).toPass({ timeout: 280_000, intervals: [5_000] });
   const v = page.getByTestId('video-parceiro').filter({ hasText: 'Perseguição na ponte' });
-  await expect(v).toContainText('trecho(s) de fala');
+  // Pelo menos um trecho de fala transcrito (a voz sintética em português).
+  await expect(v).toContainText(/[1-9]\d* trecho\(s\) de fala \(pt\)/);
   await expect(v.locator('video')).toHaveAttribute(
     'src',
     /\/api\/media\/partners\/[0-9a-f]{64}\.mp4/,

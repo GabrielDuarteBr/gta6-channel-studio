@@ -15,10 +15,14 @@ function permanent(err: unknown): boolean {
   return err instanceof PolicyViolation || (err instanceof DownloadError && err.permanent);
 }
 
-export async function runPartnerImportJob(ctx: PartnerContext, raw: unknown) {
+export async function runPartnerImportJob(
+  ctx: PartnerContext,
+  raw: unknown,
+  attempt: { made: number; max: number } = { made: 0, max: 1 },
+) {
   const { importId } = partnerImportJobSchema.parse(raw);
   try {
-    return await runPartnerImport(ctx, importId);
+    return await runPartnerImport(ctx, importId, { lastAttempt: attempt.made + 1 >= attempt.max });
   } catch (err) {
     if (permanent(err)) throw new UnrecoverableError((err as Error).message);
     throw err;

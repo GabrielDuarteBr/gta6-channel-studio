@@ -91,6 +91,7 @@ const json = (v: unknown) => v as Prisma.InputJsonValue;
 export async function runPartnerImport(
   ctx: PartnerContext,
   importId: string,
+  opts: { lastAttempt?: boolean } = {},
 ): Promise<{ status: string; assets: string[]; notes: string[] }> {
   const { prisma, log } = ctx;
   const now = ctx.now?.() ?? new Date();
@@ -225,9 +226,11 @@ export async function runPartnerImport(
   } catch (err) {
     const permanent =
       err instanceof PolicyViolation || (err instanceof DownloadError && err.permanent);
+    // Falha de vez (regra, link) ou última tentativa: o painel mostra "falhou" com o motivo.
+    const final = permanent || opts.lastAttempt === true;
     await setImport({
-      status: permanent ? 'FAILED' : 'QUEUED',
-      step: permanent ? null : 'nova tentativa em breve',
+      status: final ? 'FAILED' : 'QUEUED',
+      step: final ? null : 'nova tentativa em breve',
       error: (err as Error).message.slice(0, 500),
     });
     // Falha definitiva: o envio temporário do painel não serve mais.

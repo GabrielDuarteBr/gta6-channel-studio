@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { audit, type Asset, type AssetOrigin, type Prisma, type PrismaClient } from '@studio/db';
-import { assertManifestInput, type PermissionState } from '@studio/policy';
+import { assertManifestInput, PolicyViolation, type PermissionState } from '@studio/policy';
 import { sniffImage } from './image';
 import type { ObjectStore } from './object-store';
 
@@ -151,8 +151,12 @@ export async function addVideoAsset(
   const sha256 = await sha256File(input.filePath);
   const existing = await prisma.asset.findUnique({ where: { sha256 } });
   if (existing) {
-    if (existing.partnerId && existing.partnerId !== (input.partnerId ?? null)) {
-      throw new Error('o mesmo arquivo já está na Biblioteca com outro parceiro');
+    if (existing.partnerId !== (input.partnerId ?? null) || existing.origin !== input.origin) {
+      // O mesmo arquivo com outro dono de direitos: conflito que só o dono resolve.
+      throw new PolicyViolation(
+        'PARTNER_PERMISSION_ACTIVE',
+        `Este arquivo já está na Biblioteca como "${existing.title}", de outra origem ou de outro parceiro.`,
+      );
     }
     return { asset: existing, duplicate: true, sha256 };
   }

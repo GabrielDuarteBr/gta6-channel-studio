@@ -51,50 +51,38 @@ type Box = [number, number, number, number];
 interface LayoutSpec {
   /** Área do clipe (16:9 cabe na largura). */
   clip: Box;
-  /** Zeca grande (comentando) e pequeno (assistindo). */
-  zecaTalk: Box;
-  zecaWatch: Box;
+  /**
+   * Zeca: sempre no mesmo lugar e tamanho, inteiro dentro do quadro (o clipe nunca fica em cima
+   * dele). Render repetível: redimensionar o desenho, ter um segundo Zeca pequeno ou deixar a
+   * caixa passar da borda fez os quadros variarem entre renders.
+   */
+  zeca: Box;
   /** Faixa das legendas (comentário). */
   caption: Box;
-  /** O Zeca pequeno fica numa bolha redonda (cinema). */
-  bubble: boolean;
   frame: 'tv' | 'none';
 }
 
 const LAYOUTS: Record<ReactLayout, LayoutSpec> = {
   tv: {
     clip: [5, 13, 90, 28.5],
-    zecaTalk: [36, 58, 66, 42],
-    zecaWatch: [64, 72, 34, 26],
+    zeca: [34, 58, 66, 42],
     caption: [5, 47, 90, 11],
-    bubble: false,
     frame: 'tv',
   },
   split: {
     clip: [0, 9, 100, 31.7],
-    zecaTalk: [18, 56, 64, 44],
-    zecaWatch: [2, 74, 30, 25],
+    zeca: [18, 56, 64, 44],
     caption: [5, 44, 90, 11],
-    bubble: false,
     frame: 'none',
   },
   cinema: {
     clip: [0, 27, 100, 31.7],
-    zecaTalk: [-2, 62, 58, 38],
-    zecaWatch: [66, 70, 30, 17],
+    zeca: [0, 62, 58, 38],
     caption: [4, 9, 92, 14],
-    bubble: true,
     frame: 'none',
   },
 };
 
-const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
-const lerpBox = (a: Box, b: Box, k: number): Box => [
-  lerp(a[0], b[0], k),
-  lerp(a[1], b[1], k),
-  lerp(a[2], b[2], k),
-  lerp(a[3], b[3], k),
-];
 const boxStyle = (b: Box): CSSProperties => ({
   position: 'absolute',
   left: `${b[0]}%`,
@@ -102,8 +90,6 @@ const boxStyle = (b: Box): CSSProperties => ({
   width: `${b[2]}%`,
   height: `${b[3]}%`,
 });
-
-const TRANSITION = 0.3;
 
 export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) {
   useFontsReady();
@@ -124,11 +110,6 @@ export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) 
   const block: ReactPlanBlock =
     plan.blocks.find((b) => t >= b.start && t < b.end) ?? plan.blocks[plan.blocks.length - 1]!;
   const inClip = block.kind === 'clip';
-  // Zeca encolhe no começo do clipe e volta a crescer no fim (0 = comentando, 1 = assistindo).
-  const watch = inClip
-    ? clamp01((t - block.start) / TRANSITION) * clamp01((block.end - t) / TRANSITION)
-    : 0;
-  const zecaBox = lerpBox(spec.zecaTalk, spec.zecaWatch, watch);
   const caption = !inClip ? (plan.captions.find((c) => t >= c.start && t < c.end)?.text ?? '') : '';
   const outroStart = plan.durationSec - 1.2;
   const inOutro = t >= outroStart;
@@ -147,6 +128,10 @@ export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) 
           ...clipArea,
           background: '#000',
           overflow: 'hidden',
+          // Camada própria: os quadros novos do clipe não fazem o Chrome redesenhar o resto da
+          // tela no meio do render (sem isso, os quadros variavam entre renders).
+          willChange: 'transform',
+          transform: 'translateZ(0)',
           borderRadius: spec.frame === 'tv' ? u * 2 : 0,
           border: spec.frame === 'tv' ? `${u * 0.7}px solid ${NEON.pink}` : 'none',
           boxShadow:
@@ -268,28 +253,31 @@ export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) 
         }}
       >
         {plan.aiNotice}
+        {provisional ? (
+          <div
+            data-testid="selo-arte-provisoria"
+            style={{ marginTop: u * 0.4, fontSize: u * 1.8, opacity: 0.8 }}
+          >
+            Arte provisória do Zeca
+          </div>
+        ) : null}
       </div>
 
-      {/* Zeca */}
+      {/* Zeca (calado enquanto o clipe toca: a boca segue a trilha de voz) */}
       <div
         style={{
-          ...boxStyle(zecaBox),
+          ...boxStyle(spec.zeca),
+          willChange: 'transform',
+          transform: 'translateZ(0)',
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'center',
-          ...(spec.bubble && watch > 0.5
-            ? {
-                borderRadius: '50%',
-                overflow: 'hidden',
-                background: '#1a0f33',
-                border: `${u * 0.6}px solid ${NEON.cyan}`,
-              }
-            : {}),
         }}
       >
-        <ZecaArt state={zeca} provisional={provisional} />
+        {/* O selo "arte provisória" vai fora do desenho (abaixo do aviso de IA): o texto dentro
+            do SVG, colado na borda inferior, variava entre renders. */}
+        <ZecaArt state={zeca} provisional={false} />
       </div>
-
       {/* Legenda (só quando o Zeca fala) */}
       {caption && !inOutro ? (
         <div
