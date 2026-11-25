@@ -35,7 +35,7 @@ $ErrorActionPreference = 'Continue'
 $OutputEncoding = New-Object System.Text.UTF8Encoding $false
 $env:WSL_UTF8 = '1'
 
-$Branch = 'fase-5-canal'
+$Branch = 'personagem-arte-estilo'
 $PreferredDistro = 'Ubuntu-24.04'
 $ProjectRel = 'projetos/gta6-channel-studio'
 $ReportName = 'radar-neon-aceite-etapa-final.txt'

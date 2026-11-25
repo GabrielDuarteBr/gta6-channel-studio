@@ -14,10 +14,10 @@ import { clipJobId, clipJobSchema, type ClipJobData } from '../character/job';
 import { MediaService } from '../character/services';
 
 export const DEMO_SCRIPT =
-  '[feliz] Fala, galera do Radar! Aqui é o Zeca Neon. [pausa] ' +
-  '[surpreso] [aponta_tela] A Rockstar soltou novidade de GTA 6! ' +
-  '[serio] Mas calma: o preço ainda é rumor, tá? [pausa:500] ' +
-  '[debochado] E já tem gente vendendo o videogame pra comprar o jogo.';
+  '[empolgado] [aceno] Bora, que tem novidade no radar! Aqui é o Zeca Neon. [pausa] ' +
+  '[surpreso] [aponta_tela] Mano, a Rockstar soltou coisa nova de GTA 6! ' +
+  '[desconfiado] Mas o preço? Isso é rumor, hein, calma lá. [pausa:500] ' +
+  '[debochado] E já tem gente vendendo o videogame pra comprar o jogo. Faz sentido isso?';
 
 const env = parseEnv(redisEnvSchema.merge(serviceUrlsEnvSchema));
 const prisma = getPrisma();

@@ -612,7 +612,7 @@ resposta do Google costuma levar semanas.
 Dê **dois cliques** no `rodar-etapa-final.bat`. Ele:
 
 1. confere o Ubuntu, o projeto e o Docker Desktop;
-2. troca o projeto para a versão da etapa final (branch `fase-5-canal`);
+2. troca o projeto para a versão mais nova (branch `personagem-arte-estilo`, que já inclui a etapa final);
 3. pede o cliente OAuth (opcional; abre a página de credenciais);
 4. sobe o estúdio e cria o login do painel se ainda não existir;
 5. abre **Configurações** para você clicar em **Conectar YouTube**;
@@ -635,7 +635,7 @@ git fetch origin
 ```
 
 ```bash
-git checkout fase-5-canal
+git checkout personagem-arte-estilo && git pull --ff-only
 ```
 
 ```bash
@@ -661,6 +661,40 @@ sincronizar as métricas: `make publicar`.
 4. Uma vez por dia, abra **Aprovação**, assista e aprove.
 
 ## 14. Arte do artista e jeito de falar do Zeca
+
+### Jeito rápido: `windows/atualizar-radar-neon.bat` (recomendado)
+
+Dê **dois cliques** no `atualizar-radar-neon.bat` (no GitHub: abra o arquivo → **Download raw
+file**; o Windows pode avisar "O Windows protegeu o computador": **Mais informações → Executar
+assim mesmo**). Ele não envia nada ao GitHub nem ao YouTube, só baixa e aplica:
+
+1. confere o Ubuntu, o projeto e o Docker Desktop;
+2. aplica os commits novos da branch `personagem-arte-estilo` e mostra a lista do que entrou (se
+   houver arquivo do projeto alterado à mão no notebook, ele guarda com `git stash`, sem apagar);
+3. sobe o estúdio (reconstrói as imagens e aplica a mudança do banco sozinho) e cria o login do
+   painel se ainda não existir;
+4. gera um clipe de teste do Zeca com o jeito novo (opcional; com a voz do Google, se a chave
+   estiver no `.env`, usa ~250 caracteres da cota grátis: R$ 0,00) e abre o vídeo
+   `radar-neon-zeca-jeito-novo.mp4` da Área de Trabalho;
+5. abre a tela **Personagem**.
+
+Pelo Ubuntu, à mão:
+
+```bash
+cd ~/projetos/gta6-channel-studio
+```
+
+```bash
+git fetch origin && git checkout personagem-arte-estilo && git pull --ff-only
+```
+
+```bash
+make up
+```
+
+```bash
+make zeca
+```
 
 ### 14.1 Trocar a arte do personagem
 
