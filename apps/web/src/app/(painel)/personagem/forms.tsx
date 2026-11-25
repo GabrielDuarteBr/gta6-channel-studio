@@ -152,6 +152,34 @@ export function BibleForm({
             'Um por linha.',
           )}
           {field('avoid', 'Evitar', bible.voice.avoid.join('\n'), 3, 'Um por linha.')}
+          {field(
+            'styleFormat',
+            'Formato do apresentador',
+            bible.style?.format ?? '',
+            2,
+            'Ex.: comentarista estilo youtuber, conversando como amigo.',
+          )}
+          {field(
+            'styleDo',
+            'Jeito de falar (faça)',
+            (bible.style?.do ?? []).join('\n'),
+            4,
+            'Um por linha.',
+          )}
+          {field(
+            'styleDont',
+            'Nunca soe assim',
+            (bible.style?.dont ?? []).join('\n'),
+            3,
+            'Um por linha.',
+          )}
+          {field(
+            'styleExamples',
+            'Exemplos (ruim => bom)',
+            (bible.style?.examples ?? []).map((e) => `${e.bad} => ${e.good}`).join('\n'),
+            4,
+            'Um por linha: frase sem graça => como o Zeca falaria. Exemplos ensinam mais que regras.',
+          )}
           <div className="space-y-1.5">
             <span className="text-sm font-medium text-haze-300">Regras fixas (não saem)</span>
             <ul className="space-y-1 rounded-lg border border-night-700 bg-night-900/60 p-3 text-xs text-haze-400">

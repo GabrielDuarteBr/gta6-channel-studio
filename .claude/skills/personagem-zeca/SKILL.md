@@ -25,15 +25,24 @@ description: Como o personagem Zeca Neon é animado (marcações do roteiro, voz
 - **Determinismo**: o mesmo roteiro dá os mesmos quadros (o aceite compara `framemd5` de 2 renders).
   Nada de `Math.random`, `Date.now` ou estado entre quadros no desenho; use `seededRandom`/`seedFrom`.
   Chrome em `RENDER_GL=swiftshader` (o `swangle` variava 1 unidade em pixels).
-- A arte é **provisória** (selo ARTE PROVISÓRIA) até chegar a do ilustrador com contrato de cessão
-  (vira manifesto de direitos na Fase 3). Mudou a arte? Suba `ART_VERSION` em
-  `apps/agents/src/character/clip.ts` (entra no id do clipe).
+- Duas artes: a **provisória** em SVG (`art/Zeca.tsx`, selo ARTE PROVISÓRIA) e a **do artista** em
+  camadas (`CharacterArt` ativa → `LayeredArt`). Prova de direitos obrigatória no envio. Mudou a arte
+  provisória? Suba `ART_VERSION` em `apps/agents/src/character/clip.ts`; a do artista entra no id do
+  clipe pela versão (`artista-v<n>`).
+- `LayeredArt` monta TODAS as camadas e só troca a opacidade (nada de montar/desmontar imagem por
+  quadro) e, no render, usa o `<Img>` da Remotion, que espera carregar. SVG do artista passa por
+  `checkArtFiles` (sem script, link externo ou foreignObject) e o painel serve com CSP sandbox.
 - Voz de teste (`real: false`) nunca vai para vídeo publicado.
 - Bíblia: `LOCKED_RULES` não saem; cada edição é versão nova (`saveBibleVersion`, auditada).
 
 ## Como adicionar
-- **Expressão**: `EXPRESSIONS`/`EXPRESSION_LABEL` (spec.ts) → estilo em `STYLE` (art/Zeca.tsx:
-  sobrancelha, olhos, sorriso, inclinação) → testes de arte (cada expressão desenha diferente).
+- **Expressão**: `EXPRESSIONS`/`EXPRESSION_LABEL`/`EXPRESSION_USE` (spec.ts) → estilo em `STYLE`
+  (art/Zeca.tsx) → `HEAD_TILT` (art-pack.ts) → camadas opcionais `sobrancelhas-/olhos-/rosto-<expr>`
+  entram sozinhas → avise no `docs/guia-arte-zeca.md` (o artista precisa desenhar) → testes de arte.
+- **Camada nova da arte do artista**: `OPTIONAL_LAYERS` + `layerFrame` + `LayeredArt` (ordem) +
+  modelo (`scripts/gerar-modelo-arte.py`) + guia.
+- **Jeito de falar**: bíblia (`style` editável no painel) e `personaSection`/`styleIssues`
+  (`packages/production/src/persona.ts`); exemplos ruim → bom valem mais que regras.
 - **Gesto**: `GESTURES`/`GESTURE_SECONDS` → ângulo do braço em `ZecaArt` → teste.
 - **Motor Rive**: veja `docs/fase-2-rive-poc.md`; o componente oficial `<RemotionRiveCanvas>` não
   serve (só animação linear e WASM do unpkg). Use o padrão de `RivePoc.tsx` (runtime local, avaliação
@@ -49,4 +58,6 @@ description: Como o personagem Zeca Neon é animado (marcações do roteiro, voz
 ## Testar
 - `pnpm --filter @studio/avatar test` (marcações, linha do tempo, arte determinística).
 - Integração do job: `apps/agents/test/character.integration.test.ts` (serviços falsos).
-- Na pilha: `make zeca` / `make accept-2` (2 renders com hash idêntico, Short 9:16).
+- Na pilha: `make zeca` / `make accept-2` (2 renders com hash idêntico, Short 9:16). Com a arte do
+  artista: `make zeca ARTE=<versão> DUAS=1` (2 renders com a versão, comparados quadro a quadro).
+- Pacote de arte: `packages/avatar/test/art-pack.test.tsx` (nomes, tamanhos, SVG perigoso, quadro).

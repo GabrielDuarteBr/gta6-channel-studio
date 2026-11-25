@@ -88,8 +88,8 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   `canPromoteStory` (vazamento, trapaça, mods, spoiler na janela, rumor com < 2 fontes). Fontes
   padrão em `packages/research/src/default-sources.ts` (semeadas uma vez; o dono edita em Pauta →
   Fontes). **Reddit fora**: a API fechou para apps novos e os feeds RSS desligam em 13/11/2026.
-- **Personagem (Fase 2)**: roteiro com marcações `[feliz] [surpreso] [serio] [debochado] [bravo]
-  [neutro]`, gestos `[aponta_tela] [aceno]` e `[pausa]`/`[pausa:ms]` → cada trecho vira um áudio
+- **Personagem (Fase 2)**: roteiro com marcações `[feliz] [empolgado] [surpreso] [serio] [debochado]
+  [desconfiado] [bravo] [neutro]`, gestos `[aponta_tela] [aceno]` e `[pausa]`/`[pausa:ms]` → cada trecho vira um áudio
   (TTS plugável: `google` = Chirp 3 HD, `fake` = espeak-ng) → worker-media junta a trilha com pausas e devolve
   o tempo de cada trecho → Rhubarb (`-r phonetic --threads 1`, bocas A–H/X) → linha do tempo →
   composição `ZecaClip` (16:9 ou 9:16). Job `character.clip` na fila `render` (agents). O render é
@@ -170,6 +170,22 @@ infra              Dockerfiles, Compose (notebook, testes, produção), Caddy, S
   `ChatMessage` e lida pelo painel via SSE (`/api/command/stream`); publicar só cria `PendingAction`
   que o dono confirma. Piloto automático (`mode.autopilot`) só liga com código TOTP
   (`verifyOwnerTotp`). Produção ao vivo: SSE `/api/production/stream` + `LiveRefresh`.
+- **Arte do artista e estilo do Zeca**: arte autoral em camadas PNG/SVG com nomes fixos
+  (`packages/avatar/src/art-pack.ts`: `REQUIRED_LAYERS`/`OPTIONAL_LAYERS`, `checkArtFiles` confere
+  nomes, tipo pelos bytes, SVG seguro, mesma tela; `layerFrame` decide boca/olhos/sobrancelhas/braço
+  por quadro). Tabela `CharacterArt` (versão, DRAFT/ACTIVE/ARCHIVED, prova de direitos obrigatória,
+  camadas no S3 em `character-art/v<n>/`, nomes em minúsculas) em `packages/db/src/character-art.ts`.
+  Painel: Personagem → Arte do artista (envio, prévia, clipe de teste com rascunho, "Usar esta arte");
+  camadas servidas por `/api/character-art/v<n>/<arquivo>` (SVG com CSP sandbox). Agents copia a arte
+  ativa para `/data/work/character-art/` (`artForRender`) e passa `art` nas props; o render usa
+  `Character` → `LayeredArt` com o `<Img>` da Remotion (todas as camadas montadas, só a da vez
+  visível) ou a provisória. Modelo para o artista: `scripts/gerar-modelo-arte.py` →
+  `docs/modelo-arte-zeca/` e `apps/web/public/modelo-arte-zeca.zip`; guia: `docs/guia-arte-zeca.md`.
+  Estilo: bíblia com `style` (faça/nunca faça/exemplos; comentarista youtuber, sarcástico, sem
+  palavrão); `personaSection`/`markupSection` (`packages/production/src/persona.ts`) entram no
+  Roteirista e no Comentarista; `styleIssues` (tom de telejornal, < 4/3 expressões, pouca opinião,
+  sem "você") pede UMA melhora sem bloquear. `ensureBible` troca a bíblia padrão só se o dono nunca
+  editou.
 - **TypeScript**: pacotes exportam o código-fonte `.ts` (sem build); serviços rodam com `tsx`;
   imports sem extensão (resolução `Bundler`). TS 6 (o typescript-eslint ainda não suporta o 7).
 
@@ -189,7 +205,7 @@ Notebook (Ubuntu no WSL, projeto em `~/projetos/gta6-channel-studio`, nunca em `
 | `make render-test` | render de teste do Zeca no container |
 | `make build-prod` | imagens de produção |
 | `make coletar` | coleta notícias agora (pela fila) e imprime o resultado por fonte |
-| `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`, `VOZ=google`) |
+| `make zeca` | clipe de teste do Zeca (`ROTEIRO="..."`, `VERTICAL=1`, `VOZ=google`, `ARTE=<versão>`, `DUAS=1` compara 2 renders) |
 | `make vozes` | vozes Chirp 3 HD da chave + amostras (`AMOSTRAS=0` só lista) |
 | `make produzir` | produz um vídeo pela fila e espera (`FORMATO=LONG`, `HISTORIA=`, `REAL=1`) |
 | `make imagens` | modelos de imagem da chave Gemini (`COMPARAR=1` gera o comparativo, pago) |

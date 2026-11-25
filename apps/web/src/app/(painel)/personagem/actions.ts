@@ -72,6 +72,7 @@ const FIELD_LABEL: Record<string, string> = {
   voice: 'Voz',
   rules: 'Regras',
   aiDisclosure: 'Aviso de IA',
+  style: 'Jeito de falar',
 };
 
 const lines = (form: FormData, name: string) =>
@@ -99,6 +100,17 @@ export async function saveBibleAction(_prev: ActionState, form: FormData): Promi
     },
     rules: [...LOCKED_RULES, ...lines(form, 'rules').filter((r) => !locked.includes(r))],
     aiDisclosure: String(form.get('aiDisclosure') ?? '').trim(),
+    style: form.has('styleFormat')
+      ? {
+          format: String(form.get('styleFormat') ?? '').trim(),
+          do: lines(form, 'styleDo'),
+          dont: lines(form, 'styleDont'),
+          examples: lines(form, 'styleExamples')
+            .map((l) => l.split(/\s*=>\s*/))
+            .filter((p) => p.length === 2 && p[0] && p[1])
+            .map(([bad, good]) => ({ bad: bad!, good: good! })),
+        }
+      : current.style,
   };
   const note = String(form.get('note') ?? '').trim() || undefined;
   try {

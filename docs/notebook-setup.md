@@ -660,6 +660,49 @@ sincronizar as métricas: `make publicar`.
    quando acordar.
 4. Uma vez por dia, abra **Aprovação**, assista e aprove.
 
+## 14. Arte do artista e jeito de falar do Zeca
+
+### 14.1 Trocar a arte do personagem
+
+O Zeca é animado trocando partes do desenho (boca, olhos, sobrancelhas, braço). Por isso a arte do
+artista vem **em camadas** (PNG ou SVG, todas do mesmo tamanho), e não como uma imagem só.
+
+1. No painel, abra **Personagem → Arte do artista** e clique em **Baixar modelo para o artista**.
+   Mande para o artista o .zip e o guia [`docs/guia-arte-zeca.md`](guia-arte-zeca.md) (o que
+   desenhar, nomes dos arquivos, tamanho, ordem das camadas).
+2. Quando a arte chegar, extraia a pasta no Windows (botão direito → **Extrair tudo**).
+3. Em **Personagem → Arte do artista**:
+   - em **Camadas**, abra a pasta, aperte **Ctrl+A** e escolha todos os arquivos;
+   - preencha o **Artista** e a **Prova de direitos** (o contrato de cessão ou licença: quem cedeu,
+     data e o que o canal pode fazer). Se tiver o contrato em PDF ou foto, anexe;
+   - clique em **Enviar arte**. O painel confere tudo e diz exatamente o que faltar ou estiver fora
+     do tamanho.
+4. A arte entra como **rascunho**. Confira a prévia (8 expressões, 9 bocas e a piscada).
+5. Em **Clipe de teste**, escolha a versão em **Arte** e gere um clipe para ver a boca e os gestos.
+6. Gostou? Clique em **Usar esta arte**. Os próximos vídeos, Shorts e thumbnails saem com ela.
+   Para voltar, há o botão **Voltar para a arte provisória**.
+
+Se a cabeça ou o braço girarem num ponto estranho, envie de novo ajustando **Ajuste fino: pontos de
+giro** (pescoço e ombro, em % da tela).
+
+### 14.2 Jeito de falar (personalidade)
+
+O Zeca agora é um **comentarista estilo youtuber**: divertido, animado e sarcástico, falando com
+você como um amigo que mostra a notícia, sem tom de telejornal e sem palavrão. O Roteirista e o
+Comentarista dos reacts seguem a **bíblia** (Personagem → Bíblia do personagem):
+
+- **Bordões**: um por linha (ele usa no máximo um por vídeo).
+- **Jeito de falar (faça)** e **Nunca soe assim**: um por linha.
+- **Exemplos (ruim => bom)**: uma frase sem graça e como o Zeca falaria, separadas por `=>`. É o
+  que mais ensina o estilo.
+
+Cada salvamento cria uma versão nova da bíblia (dá para restaurar). Se um roteiro sair com cara de
+telejornal, sem reação ou sem conversar com quem assiste, o estúdio pede uma segunda versão
+melhorada ao Roteirista automaticamente (custa alguns centavos a mais só nesses casos).
+
+Dica de voz: para combinar com a energia nova, teste vozes mais animadas (`make vozes`) e uma
+velocidade um pouco maior (Configurações → Voz do Zeca, por exemplo 1,1).
+
 ## Valores em reais
 
 Todo valor do painel e dos relatórios aparece em **reais**. As APIs cobram em dólar; o estúdio
