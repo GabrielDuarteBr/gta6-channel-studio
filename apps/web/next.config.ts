@@ -31,9 +31,10 @@ const config: NextConfig = {
   ],
   serverExternalPackages: ['@node-rs/argon2', 'pino', 'ioredis', 'bullmq', '@aws-sdk/client-s3'],
   experimental: {
-    // Envio de imagens para a Biblioteca (até 20 MB por arquivo, com folga para o formulário).
-    serverActions: { bodySizeLimit: '25mb' },
-    proxyClientMaxBodySize: '25mb',
+    // Envio de imagens para a Biblioteca (até 20 MB por arquivo) e do pacote de arte do
+    // personagem (até 24 MB de camadas + contrato), com folga para o formulário.
+    serverActions: { bodySizeLimit: '40mb' },
+    proxyClientMaxBodySize: '40mb',
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

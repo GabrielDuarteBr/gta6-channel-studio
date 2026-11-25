@@ -21,6 +21,7 @@ import { createImageProvider, type ImageProvider, type TtsProvider } from '@stud
 import type { Logger } from '@studio/shared';
 import type { ObjectStore } from '@studio/storage';
 import { z } from 'zod';
+import { artForRender } from '../character/art';
 import { MediaService, RenderService, type RenderReport } from '../character/services';
 import { recordTts, ttsForClip } from '../character/tts';
 import { budgetStatus, costRecorder } from '../research/ledger';
@@ -248,6 +249,7 @@ export async function runProduction(
         attempts: written.attempts,
         lines: script.lines.length,
         estimatedSec: Math.round(written.estimatedSec),
+        styleNotes: written.styleNotes,
       },
     });
   }
@@ -386,9 +388,11 @@ export async function runProduction(
     await savePlan();
 
     const rdir = `${dir}/r${round}`;
+    // Arte do artista (ativa) ou a provisória.
+    const art = await artForRender(prisma, ctx.store);
     const videoReport = await render.render({
       composition: 'NewsVideo',
-      props: { plan, provisional: true },
+      props: { plan, provisional: !art, art },
       output: `${rdir}/video.mp4`,
       vertical: format === 'SHORT',
       height: ctx.renderHeight,
@@ -408,7 +412,7 @@ export async function runProduction(
       thumbReports.push(
         await render.render({
           composition: 'Thumbnail',
-          props: { spec: shifted, provisional: true },
+          props: { spec: shifted, provisional: !art, art },
           output: out,
           still: true,
         }),

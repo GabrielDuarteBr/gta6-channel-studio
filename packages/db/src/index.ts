@@ -6,3 +6,4 @@ export * from './generated/prisma/client';
 export * from './character-bible';
 export * from './fx';
 export * from './youtube-token';
+export * from './character-art';

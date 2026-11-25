@@ -26,6 +26,7 @@ import {
   type ReactPlan,
   type ReactScript,
 } from '@studio/production';
+import { artForRender } from '../character/art';
 import { MediaService, RenderService, type RenderReport } from '../character/services';
 import { recordTts, ttsForClip } from '../character/tts';
 import { ensureLocalVideo, permissionState, runAnalyze } from '../partners/import';
@@ -394,9 +395,10 @@ export async function runReactProduction(
     await savePlan();
 
     const video = `${dir}/r${round}/react.mp4`;
+    const art = await artForRender(prisma, ctx.store);
     lastReport = await render.render({
       composition: 'ReactShort',
-      props: { plan, provisional: true },
+      props: { plan, provisional: !art, art },
       output: video,
       vertical: true,
       height: ctx.renderHeight,

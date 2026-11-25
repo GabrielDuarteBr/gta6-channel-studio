@@ -11,6 +11,7 @@ import { activeBible, audit, type PrismaClient } from '@studio/db';
 import { assertCharacterLine } from '@studio/policy';
 import type { TtsProvider } from '@studio/providers';
 import type { Logger } from '@studio/shared';
+import { artForRender } from './art';
 import type { MediaService, RenderReport, RenderService } from './services';
 import { recordTts } from './tts';
 
@@ -24,6 +25,8 @@ export interface ClipInput {
   label?: string;
   /** Sufixo do arquivo (ex.: "a", "b" para provar que dois renders são idênticos). */
   variant?: string;
+  /** Testar uma versão da arte do artista (rascunho); sem isto, usa a ativa. */
+  artVersion?: number;
 }
 
 export interface ClipResult {
@@ -52,6 +55,8 @@ export interface ClipContext {
   ttsRate?: number;
   media: MediaService;
   render: RenderService;
+  /** S3 (camadas da arte do artista). Sem ele, o clipe sai com a arte provisória. */
+  store?: { get(key: string): Promise<Uint8Array> };
 }
 
 /** Id estável: o mesmo roteiro com a mesma voz, bíblia e arte gera a mesma pasta. */
@@ -80,6 +85,13 @@ export async function produceCharacterClip(
     throw err;
   }
   const bible = await activeBible(ctx.prisma);
+  const art = ctx.store
+    ? await artForRender(
+        ctx.prisma,
+        ctx.store,
+        input.artVersion ? { version: input.artVersion } : {},
+      )
+    : null;
   const id = clipId({
     script: input.script,
     layout: input.layout,
@@ -87,7 +99,7 @@ export async function produceCharacterClip(
     voice: ctx.ttsVoice ?? null,
     rate: ctx.ttsRate ?? null,
     bible: bible.version,
-    art: ART_VERSION,
+    art: art ? `artista-v${art.version}` : ART_VERSION,
     label: input.label ?? null,
   });
   const dir = `clips/${id}`;
@@ -116,7 +128,8 @@ export async function produceCharacterClip(
     composition: 'ZecaClip',
     props: {
       seed: seedFrom(input.script),
-      provisional: true,
+      provisional: !art,
+      art,
       label: input.label ?? 'Clipe de teste do personagem',
       timeline,
       captions,

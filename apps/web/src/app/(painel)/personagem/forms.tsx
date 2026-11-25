@@ -1,28 +1,37 @@
 'use client';
 
 import type { CharacterBible } from '@studio/avatar';
-import { Clapperboard, Save } from 'lucide-react';
+import { Clapperboard, Save, Upload } from 'lucide-react';
 import { Fragment, useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select } from '@/components/ui/input';
-import { generateClipAction, saveBibleAction, type ActionState } from './actions';
+import { generateClipAction, saveBibleAction, uploadArtAction, type ActionState } from './actions';
 
 const textarea =
   'w-full rounded-lg border border-night-600 bg-night-900 px-3 py-2 text-sm text-white placeholder:text-haze-500 focus:border-neon-cyan focus:outline-none';
 
 function Feedback({ state }: { state: ActionState }) {
+  const details = state.details?.length ? (
+    <ul className="mt-1 list-disc pl-5 text-xs text-haze-400" data-testid="detalhes">
+      {state.details.map((d) => (
+        <li key={d}>{d}</li>
+      ))}
+    </ul>
+  ) : null;
   if (state.message) {
     return (
-      <p role="status" className="text-sm text-palm">
+      <div role="status" className="text-sm text-palm">
         {state.message}
-      </p>
+        {details}
+      </div>
     );
   }
   if (state.error) {
     return (
-      <p role="alert" className="text-sm text-alert">
+      <div role="alert" className="text-sm text-alert">
         {state.error}
-      </p>
+        {details}
+      </div>
     );
   }
   return null;
@@ -33,11 +42,14 @@ export function ClipForm({
   allowedTags,
   defaultVoice,
   defaultLayout,
+  artOptions = [],
 }: {
   demoScript: string;
   allowedTags: string[];
   defaultVoice: 'fake' | 'google';
   defaultLayout: 'landscape' | 'vertical';
+  /** Versões da arte do artista que podem ser testadas (rascunhos). */
+  artOptions?: Array<{ version: number; label: string }>;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(generateClipAction, {});
   return (
@@ -71,6 +83,19 @@ export function ClipForm({
             <option value="fake">Voz de teste (robótica, grátis)</option>
           </Select>
         </div>
+        {artOptions.length ? (
+          <div className="w-56 space-y-1.5">
+            <Label htmlFor="clip-art">Arte</Label>
+            <Select id="clip-art" name="artVersion" defaultValue="">
+              <option value="">A que está em uso</option>
+              {artOptions.map((o) => (
+                <option key={o.version} value={o.version}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
         <Button type="submit" disabled={pending}>
           <Clapperboard /> Gerar clipe de teste
         </Button>
@@ -148,6 +173,89 @@ export function BibleForm({
         </Button>
         <Feedback state={state} />
       </div>
+    </form>
+  );
+}
+
+/** Envio do pacote de camadas do artista (PNG/SVG) com a prova de direitos. */
+export function ArtUploadForm({ pivots }: { pivots: { head: number[]; arm: number[] } }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(uploadArtAction, {});
+  return (
+    <form action={action} className="space-y-3" data-testid="form-arte">
+      <div className="space-y-1.5">
+        <Label htmlFor="art-layers">Camadas (PNG ou SVG, todas do mesmo tamanho)</Label>
+        <input
+          id="art-layers"
+          name="layers"
+          type="file"
+          multiple
+          accept=".png,.svg,image/png,image/svg+xml"
+          required
+          className="block w-full text-sm text-haze-300 file:mr-3 file:rounded-lg file:border-0 file:bg-night-700 file:px-3 file:py-2 file:text-white"
+        />
+        <p className="text-xs text-haze-500">
+          Abra a pasta das camadas, aperte Ctrl+A e escolha todas. Nomes no padrão do guia
+          (corpo.png, cabeca.png, boca-A.png...).
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="art-artist">Artista</Label>
+          <Input id="art-artist" name="artist" required placeholder="Nome do ilustrador" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="art-proof-file">Contrato (PDF, PNG ou JPG, opcional)</Label>
+          <input
+            id="art-proof-file"
+            name="proof"
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+            className="block w-full text-sm text-haze-300 file:mr-3 file:rounded-lg file:border-0 file:bg-night-700 file:px-3 file:py-2 file:text-white"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="art-rights">Prova de direitos</Label>
+        <textarea
+          id="art-rights"
+          name="rightsProof"
+          rows={2}
+          required
+          className={textarea}
+          placeholder="Ex.: contrato de cessão de direitos assinado em 20/11/2026 com Fulano; o canal pode usar e animar o personagem em vídeos, inclusive monetizados."
+        />
+      </div>
+      <details className="text-sm">
+        <summary className="cursor-pointer text-haze-300">Ajuste fino: pontos de giro (%)</summary>
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              ['headX', 'Pescoço X', pivots.head[0]],
+              ['headY', 'Pescoço Y', pivots.head[1]],
+              ['armX', 'Ombro X', pivots.arm[0]],
+              ['armY', 'Ombro Y', pivots.arm[1]],
+            ] as const
+          ).map(([name, label, value]) => (
+            <div key={name} className="space-y-1">
+              <Label htmlFor={`art-${name}`}>{label}</Label>
+              <Input
+                id={`art-${name}`}
+                name={name}
+                defaultValue={String(value)}
+                inputMode="decimal"
+              />
+            </div>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-haze-500">
+          Onde a cabeça gira (pescoço) e onde o braço gira (ombro), em % da largura e da altura da
+          tela.
+        </p>
+      </details>
+      <Button type="submit" disabled={pending}>
+        <Upload /> {pending ? 'Conferindo…' : 'Enviar arte'}
+      </Button>
+      <Feedback state={state} />
     </form>
   );
 }

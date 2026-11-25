@@ -1,6 +1,7 @@
 import {
   ALLOWED_TAGS,
   AVATAR_ENGINES,
+  DEFAULT_PIVOTS,
   EXPRESSION_LABEL,
   EXPRESSIONS,
   GESTURE_LABEL,
@@ -9,30 +10,48 @@ import {
   LOCKED_RULES,
   MOUTH_LABEL,
   MOUTH_SHAPES,
+  type ArtPackRef,
+  type AvatarFrameState,
 } from '@studio/avatar';
-import { ZecaArt } from '@studio/avatar/art';
+import { LayeredArt, ZecaArt } from '@studio/avatar/art';
 import { activeBible, getAllSettings, getPrisma, listBibleVersions } from '@studio/db';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { Badge, Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { googleCharsThisMonth, listClips } from '@/server/character';
-import { restoreBibleAction } from './actions';
-import { BibleForm, ClipForm } from './forms';
+import { listArt, PANEL_ART_BASE, panelArtRef } from '@/server/character-art';
+import { activateArtAction, restoreBibleAction } from './actions';
+import { ArtUploadForm, BibleForm, ClipForm } from './forms';
 
 export const metadata: Metadata = { title: 'Personagem' };
 export const dynamic = 'force-dynamic';
 
 const DEMO_SCRIPT =
-  '[feliz] Fala, galera do Radar! Aqui é o Zeca Neon. [pausa] ' +
-  '[surpreso] [aponta_tela] A Rockstar soltou novidade de GTA 6! ' +
-  '[serio] Mas calma: o preço ainda é rumor, tá? [pausa:500] ' +
-  '[debochado] E já tem gente vendendo o videogame pra comprar o jogo.';
+  '[empolgado] [aceno] Bora, que tem novidade no radar! Aqui é o Zeca Neon. [pausa] ' +
+  '[surpreso] [aponta_tela] Mano, a Rockstar soltou coisa nova de GTA 6! ' +
+  '[desconfiado] Mas o preço? Isso é rumor, hein, calma lá. [pausa:500] ' +
+  '[debochado] E já tem gente vendendo o videogame pra comprar o jogo. Faz sentido isso?';
 
 const fmt = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
   timeStyle: 'short',
   timeZone: 'America/Sao_Paulo',
 });
+
+/** O Zeca na prévia: arte do artista (camadas) ou a provisória. */
+function Preview({ state, art }: { state: AvatarFrameState; art: ArtPackRef | null }) {
+  return art ? (
+    <LayeredArt pack={art} baseUrl={PANEL_ART_BASE} state={state} />
+  ) : (
+    <ZecaArt state={state} provisional={false} />
+  );
+}
+
+const ART_STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'muted' }> = {
+  ACTIVE: { label: 'em uso', tone: 'ok' },
+  DRAFT: { label: 'rascunho', tone: 'warn' },
+  ARCHIVED: { label: 'arquivada', tone: 'muted' },
+};
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'error' | 'info' }> = {
   QUEUED: { label: 'na fila', tone: 'info' },
@@ -44,37 +63,51 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'error' | 'i
 
 export default async function CharacterPage() {
   const prisma = getPrisma();
-  const [bible, versions, clips, settings, googleChars] = await Promise.all([
+  const [bible, versions, clips, settings, googleChars, arts] = await Promise.all([
     activeBible(prisma),
     listBibleVersions(prisma, 10),
     listClips(6),
     getAllSettings(prisma),
     googleCharsThisMonth(),
+    listArt(6),
   ]);
+  const activeRow = arts.find((a) => a.status === 'ACTIVE') ?? null;
+  const art = activeRow ? panelArtRef(activeRow) : null;
 
   return (
     <>
       <PageHeader
         title="Personagem"
         subtitle="O Zeca Neon: expressões, bocas, gestos, bíblia e clipe de teste com voz e boca sincronizada."
-        actions={<Badge tone="warn">Arte provisória</Badge>}
+        actions={
+          activeRow ? (
+            <Badge tone="ok" data-testid="arte-em-uso">
+              Arte de {activeRow.artist} (v{activeRow.version})
+            </Badge>
+          ) : (
+            <Badge tone="warn" data-testid="arte-em-uso">
+              Arte provisória
+            </Badge>
+          )
+        }
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardTitle>Expressões</CardTitle>
           <CardDescription>
-            Arte em camadas feita pelo estúdio. A definitiva vem do ilustrador (com contrato de
-            cessão de direitos).
+            {activeRow
+              ? `Arte de ${activeRow.artist} (versão ${activeRow.version}), em camadas.`
+              : 'Arte provisória feita pelo estúdio. Envie a do artista em "Arte do artista", logo abaixo.'}
           </CardDescription>
           <ul
-            className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6"
+            className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-8"
             data-testid="galeria-expressoes"
           >
             {EXPRESSIONS.map((expression) => (
               <li key={expression} className="text-center">
                 <div className="rounded-xl bg-night-900 p-1">
-                  <ZecaArt state={{ ...IDLE_STATE, expression }} provisional={false} />
+                  <Preview state={{ ...IDLE_STATE, expression }} art={art} />
                 </div>
                 <span className="text-xs text-haze-300">{EXPRESSION_LABEL[expression]}</span>
               </li>
@@ -86,7 +119,7 @@ export default async function CharacterPage() {
               <li key={mouth} className="text-center" title={MOUTH_LABEL[mouth]}>
                 <div className="overflow-hidden rounded-lg bg-night-900">
                   <div className="-my-[40%] scale-[2.1]">
-                    <ZecaArt state={{ ...IDLE_STATE, mouth }} provisional={false} />
+                    <Preview state={{ ...IDLE_STATE, mouth }} art={art} />
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-haze-300">{mouth}</span>
@@ -98,13 +131,13 @@ export default async function CharacterPage() {
             {GESTURES.map((id) => (
               <li key={id} className="text-center">
                 <div className="rounded-xl bg-night-900 p-1">
-                  <ZecaArt
+                  <Preview
                     state={{
                       ...IDLE_STATE,
                       expression: 'feliz',
                       gesture: { id, amount: 1, phase: 0.3 },
                     }}
-                    provisional={false}
+                    art={art}
                   />
                 </div>
                 <span className="text-xs text-haze-300">
@@ -162,6 +195,126 @@ export default async function CharacterPage() {
         </Card>
       </div>
 
+      <Card className="mt-4" data-testid="cartao-arte">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <CardTitle>Arte do artista</CardTitle>
+          <a href="/modelo-arte-zeca.zip" className="text-sm text-neon-cyan underline" download>
+            Baixar modelo para o artista (.zip)
+          </a>
+        </div>
+        <CardDescription>
+          Camadas PNG ou SVG do ilustrador, todas do mesmo tamanho: corpo, cabeça (sem rosto),
+          olhos, sobrancelhas de cada expressão, as 9 bocas e os braços dos gestos. Guia completo em
+          docs/guia-arte-zeca.md. Cada envio vira uma versão em rascunho: confira a prévia, teste
+          num clipe e só então use.
+        </CardDescription>
+        <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+          <ArtUploadForm pivots={DEFAULT_PIVOTS} />
+          <div>
+            {arts.length === 0 ? (
+              <p className="text-sm text-haze-500">Nenhuma arte enviada ainda.</p>
+            ) : null}
+            <ul className="space-y-4" data-testid="lista-artes">
+              {arts.map((row) => {
+                const ref = panelArtRef(row);
+                const st = ART_STATUS[row.status] ?? { label: row.status, tone: 'muted' as const };
+                return (
+                  <li
+                    key={row.id}
+                    className="rounded-xl border border-night-700 p-3"
+                    data-testid="arte"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={st.tone} data-testid="status-arte">
+                        v{row.version} · {st.label}
+                      </Badge>
+                      <span className="text-xs text-haze-400">
+                        {row.artist} · {row.canvasWidth}×{row.canvasHeight} ·{' '}
+                        {Object.keys(ref.files).length} camadas · {fmt.format(row.createdAt)}
+                      </span>
+                      {row.proofKey ? (
+                        <a
+                          href={`${PANEL_ART_BASE}/v${row.version}/prova`}
+                          className="text-xs text-neon-cyan underline"
+                        >
+                          contrato
+                        </a>
+                      ) : null}
+                    </div>
+                    <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
+                      {EXPRESSIONS.map((expression) => (
+                        <li key={expression} className="text-center">
+                          <div className="rounded-lg bg-night-900 p-0.5">
+                            <Preview state={{ ...IDLE_STATE, expression }} art={ref} />
+                          </div>
+                          <span className="text-[10px] text-haze-400">
+                            {EXPRESSION_LABEL[expression]}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-2 grid grid-cols-5 gap-1 sm:grid-cols-10">
+                      {MOUTH_SHAPES.map((mouth) => (
+                        <div key={mouth} className="text-center" title={MOUTH_LABEL[mouth]}>
+                          <div className="overflow-hidden rounded bg-night-900">
+                            <div className="-my-[40%] scale-[2.1]">
+                              <Preview state={{ ...IDLE_STATE, mouth }} art={ref} />
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-haze-400">{mouth}</span>
+                        </div>
+                      ))}
+                      <div className="text-center">
+                        <div className="overflow-hidden rounded bg-night-900">
+                          <div className="-my-[40%] scale-[2.1]">
+                            <Preview state={{ ...IDLE_STATE, eyeOpen: 0 }} art={ref} />
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-haze-400">piscada</span>
+                      </div>
+                    </div>
+                    {row.warnings.length ? (
+                      <details className="mt-2 text-xs text-sunset">
+                        <summary className="cursor-pointer">
+                          {row.warnings.length} aviso(s) do pacote
+                        </summary>
+                        <ul className="mt-1 list-disc pl-5">
+                          {row.warnings.map((w) => (
+                            <li key={w}>{w}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                    <form action={activateArtAction} className="mt-2 flex gap-2">
+                      {row.status === 'ACTIVE' ? (
+                        <button
+                          type="submit"
+                          name="version"
+                          value="provisoria"
+                          className="rounded-full border border-night-600 px-3 py-1 text-xs text-haze-300 hover:bg-night-800"
+                        >
+                          Voltar para a arte provisória
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          name="version"
+                          value={row.version}
+                          className="rounded-full bg-neon-pink px-3 py-1 text-xs font-semibold text-white"
+                          data-testid="usar-arte"
+                        >
+                          Usar esta arte
+                        </button>
+                      )}
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </Card>
+
       <Card className="mt-4">
         <CardTitle>Clipe de teste</CardTitle>
         <CardDescription>
@@ -174,6 +327,9 @@ export default async function CharacterPage() {
             allowedTags={ALLOWED_TAGS}
             defaultVoice={settings['mode.simulation'] ? 'fake' : settings.character.ttsProvider}
             defaultLayout={settings.character.layout}
+            artOptions={arts
+              .filter((a) => a.status !== 'ACTIVE')
+              .map((a) => ({ version: a.version, label: `v${a.version} · ${a.artist} (teste)` }))}
           />
         </div>
         <ul className="mt-5 space-y-3" data-testid="lista-clipes">

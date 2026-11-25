@@ -1,8 +1,8 @@
-import { IDLE_STATE } from '@studio/avatar';
-import { ZecaArt } from '@studio/avatar/art';
+import { artPackRefSchema, IDLE_STATE } from '@studio/avatar';
 import type { ThumbnailSpec } from '@studio/production';
 import { AbsoluteFill, Img } from 'remotion';
 import { z } from 'zod';
+import { Character } from '../Character';
 import { FONT_DISPLAY, NEON, NeonBackdrop, outlinedText, useFontsReady } from './shared';
 
 /**
@@ -13,12 +13,14 @@ export const thumbnailSchema = z.object({
   spec: z.custom<ThumbnailSpec>((v) => typeof v === 'object' && v !== null && 'headline' in v),
   workBaseUrl: z.string(),
   provisional: z.boolean(),
+  /** Arte do ilustrador (camadas); sem ela, a arte provisória. */
+  art: artPackRefSchema.nullable().optional(),
 });
 export type ThumbnailProps = z.infer<typeof thumbnailSchema>;
 
 const ACCENTS = [NEON.yellow, '#ffffff', NEON.cyan];
 
-export function Thumbnail({ spec, workBaseUrl, provisional }: ThumbnailProps) {
+export function Thumbnail({ spec, workBaseUrl, provisional, art }: ThumbnailProps) {
   useFontsReady();
   const u = 7.2; // 1% da altura (720)
   const mirrored = spec.variant === 1;
@@ -62,8 +64,10 @@ export function Thumbnail({ spec, workBaseUrl, provisional }: ThumbnailProps) {
           filter: `drop-shadow(0 0 ${u * 2}px ${NEON.pink}aa)`,
         }}
       >
-        <ZecaArt
+        <Character
           state={{ ...IDLE_STATE, expression: spec.expression, mouth }}
+          art={art}
+          workBaseUrl={workBaseUrl}
           provisional={provisional}
         />
       </div>

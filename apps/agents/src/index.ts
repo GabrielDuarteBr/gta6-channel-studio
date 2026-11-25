@@ -256,6 +256,7 @@ async function main(): Promise<void> {
     mediaUrl: env.MEDIA_URL,
     renderUrl: env.RENDER_URL,
     googleApiKey: process.env.GOOGLE_TTS_API_KEY || undefined,
+    store: new S3ObjectStore(env),
   };
   const productionCtx = {
     prisma,

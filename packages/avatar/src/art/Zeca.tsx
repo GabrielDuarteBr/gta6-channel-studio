@@ -49,6 +49,22 @@ const STYLE: Record<Expression, ExpressionStyle> = {
     tilt: -4,
     blush: 0.15,
   },
+  empolgado: {
+    brow: { raise: -9, inner: -3 },
+    eye: [1.15, 1.15],
+    smile: 9,
+    smirk: 0,
+    tilt: 4,
+    blush: 0.45,
+  },
+  desconfiado: {
+    brow: { raise: 3, inner: 2, leftExtra: -12 },
+    eye: [0.95, 0.5],
+    smile: -1,
+    smirk: 6,
+    tilt: 3,
+    blush: 0,
+  },
   surpreso: {
     brow: { raise: -11, inner: -3 },
     eye: [1.3, 1.3],

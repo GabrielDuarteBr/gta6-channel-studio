@@ -27,6 +27,17 @@ describeDb('bíblia do personagem (versionada e auditada)', () => {
     expect(log.map((l) => l.target).sort()).toEqual(['v1', 'v2']);
   });
 
+  it('bíblia padrão nunca editada é atualizada para a padrão nova; a do dono nunca', async () => {
+    const antiga = { ...DEFAULT_BIBLE, summary: 'Versão antiga da bíblia padrão do Zeca Neon.' };
+    expect(await saveBibleVersion(prisma, antiga, 'system', 'antiga')).toBe(1);
+    expect(await ensureBible(prisma)).toBe(2);
+    expect((await activeBible(prisma)).content.style?.format).toMatch(/youtuber/);
+    expect(await ensureBible(prisma)).toBeNull(); // o jsonb reordena as chaves: não duplica
+    await saveBibleVersion(prisma, antiga, 'owner', 'do meu jeito');
+    expect(await ensureBible(prisma)).toBeNull();
+    expect((await activeBible(prisma)).content.summary).toMatch(/Versão antiga/);
+  });
+
   it('recusa versão que remove regra fixa (nada é gravado)', async () => {
     await ensureBible(prisma);
     const semRegra = {

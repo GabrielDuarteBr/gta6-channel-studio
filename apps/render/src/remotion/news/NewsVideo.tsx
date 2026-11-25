@@ -1,5 +1,9 @@
-import { blinkSchedule, frameState, type CharacterTimeline } from '@studio/avatar';
-import { ZecaArt } from '@studio/avatar/art';
+import {
+  artPackRefSchema,
+  blinkSchedule,
+  frameState,
+  type CharacterTimeline,
+} from '@studio/avatar';
 import type { VideoPlan } from '@studio/production';
 import { useMemo, type CSSProperties } from 'react';
 import {
@@ -11,6 +15,7 @@ import {
   type CalculateMetadataFunction,
 } from 'remotion';
 import { z } from 'zod';
+import { Character } from '../Character';
 import {
   clamp01,
   FONT_DISPLAY,
@@ -33,6 +38,8 @@ export const newsVideoSchema = z.object({
   /** Base para os arquivos da pasta de trabalho (o servidor de render injeta). */
   workBaseUrl: z.string(),
   provisional: z.boolean(),
+  /** Arte do ilustrador (camadas); sem ela, a arte provisória. */
+  art: artPackRefSchema.nullable().optional(),
 });
 export type NewsVideoProps = z.infer<typeof newsVideoSchema>;
 
@@ -49,7 +56,7 @@ const FADE = 0.45;
 const active = <T extends { start: number; end: number }>(items: T[], t: number) =>
   items.find((i) => t >= i.start && t < i.end);
 
-export function NewsVideo({ plan, workBaseUrl, provisional }: NewsVideoProps) {
+export function NewsVideo({ plan, workBaseUrl, provisional, art }: NewsVideoProps) {
   useFontsReady();
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -221,7 +228,7 @@ export function NewsVideo({ plan, workBaseUrl, provisional }: NewsVideoProps) {
 
       {/* Zeca */}
       <div style={{ position: 'absolute', ...zecaBox, display: 'flex', alignItems: 'flex-end' }}>
-        <ZecaArt state={zeca} provisional={provisional} />
+        <Character state={zeca} art={art} workBaseUrl={workBaseUrl} provisional={provisional} />
       </div>
 
       {/* Fonte na tela */}

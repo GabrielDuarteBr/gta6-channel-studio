@@ -1,4 +1,5 @@
 import {
+  artPackRefSchema,
   blinkSchedule,
   EXPRESSIONS,
   frameState,
@@ -6,7 +7,6 @@ import {
   MOUTH_SHAPES,
   type CharacterTimeline,
 } from '@studio/avatar';
-import { ZecaArt } from '@studio/avatar/art';
 import { useMemo } from 'react';
 import {
   AbsoluteFill,
@@ -16,6 +16,7 @@ import {
   type CalculateMetadataFunction,
 } from 'remotion';
 import { z } from 'zod';
+import { Character } from './Character';
 
 export const ZECA_FPS = 30;
 
@@ -36,6 +37,10 @@ export const zecaClipSchema = z.object({
   label: z.string().max(80),
   timeline: timelineSchema,
   captions: z.array(z.object({ start: z.number(), end: z.number(), text: z.string().max(400) })),
+  /** Base da pasta de trabalho (o servidor de render injeta). */
+  workBaseUrl: z.string().optional(),
+  /** Arte do ilustrador (camadas); sem ela, a arte provisória. */
+  art: artPackRefSchema.nullable().optional(),
 });
 export type ZecaClipProps = z.infer<typeof zecaClipSchema>;
 
@@ -98,6 +103,8 @@ export function ZecaClip({
   label,
   timeline,
   captions,
+  workBaseUrl,
+  art,
 }: ZecaClipProps) {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -158,7 +165,7 @@ export function ZecaClip({
       </div>
 
       <div style={{ position: 'absolute', ...avatar, display: 'flex', alignItems: 'flex-end' }}>
-        <ZecaArt state={state} provisional={provisional} />
+        <Character state={state} art={art} workBaseUrl={workBaseUrl} provisional={provisional} />
       </div>
 
       <div

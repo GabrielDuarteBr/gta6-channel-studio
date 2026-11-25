@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 /** Tela Personagem (Fase 2). O clipe é gerado de verdade na pilha de testes. */
@@ -9,10 +12,12 @@ test.describe.configure({ mode: 'serial' });
  */
 const attempt = () => (test.info().retry ? ` Tentativa ${test.info().retry + 1}.` : '');
 
-test('personagem: galeria com 6 expressões, 9 bocas e voz de teste', async ({ page }) => {
+test('personagem: galeria com 8 expressões, 9 bocas e voz de teste', async ({ page }) => {
   await page.goto('/personagem');
   await expect(page.getByRole('heading', { name: 'Personagem', exact: true })).toBeVisible();
-  await expect(page.getByTestId('galeria-expressoes').locator('svg')).toHaveCount(6);
+  await expect(page.getByTestId('galeria-expressoes').locator('svg')).toHaveCount(8);
+  await expect(page.getByTestId('galeria-expressoes')).toContainText('Empolgado');
+  await expect(page.getByTestId('galeria-expressoes')).toContainText('Desconfiado');
   await expect(page.getByTestId('galeria-bocas').locator('svg')).toHaveCount(9);
   await expect(page.getByTestId('voz-atual')).toContainText('Google Chirp 3 HD');
   await expect(page.getByTestId('voz-atual')).toContainText('Modo simulado ligado');
@@ -131,4 +136,85 @@ test('bíblia: salvar cria versão nova; restaurar também; regras fixas ficam',
 
   await page.goto('/saude');
   await expect(page.getByRole('cell', { name: 'bible.version' }).first()).toBeVisible();
+});
+
+const ARTE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/arte-zeca');
+const camadas = (sem: string[] = []) =>
+  readdirSync(ARTE)
+    .filter((f) => f.endsWith('.svg') && !sem.includes(f))
+    .map((f) => ({ name: f, mimeType: 'image/svg+xml', buffer: readFileSync(path.join(ARTE, f)) }));
+
+test('arte do artista: confere o pacote, testa no clipe e passa a ser usada', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(360_000);
+  await page.goto('/personagem');
+  const form = page.getByTestId('form-arte');
+  await expect(page.getByRole('link', { name: /Baixar modelo para o artista/ })).toBeVisible();
+  const modelo = await request.get('/modelo-arte-zeca.zip');
+  expect(modelo.status()).toBe(200);
+
+  // frase vaga não é prova de direitos
+  await form.getByLabel(/Camadas/).setInputFiles(camadas());
+  await form.getByLabel('Artista').fill('Artista E2E');
+  await form.getByLabel('Prova de direitos').fill('liberado');
+  await form.getByRole('button', { name: 'Enviar arte' }).click();
+  await expect(form.getByRole('alert')).toContainText('prova de direitos');
+
+  // sem a cabeça: recusado com a lista do que falta
+  await form.getByLabel(/Camadas/).setInputFiles(camadas(['cabeca.svg']));
+  await form.getByLabel('Artista').fill('Artista E2E');
+  await form
+    .getByLabel('Prova de direitos')
+    .fill('Contrato de cessão de direitos assinado em 20/11/2026 com o Artista E2E.');
+  await form.getByRole('button', { name: 'Enviar arte' }).click();
+  await expect(form.getByRole('alert')).toContainText('falta a camada obrigatória: cabeca');
+
+  // pacote completo: vira rascunho com prévia
+  await form.getByLabel(/Camadas/).setInputFiles(camadas());
+  await form.getByLabel('Artista').fill('Artista E2E');
+  await form
+    .getByLabel('Prova de direitos')
+    .fill('Contrato de cessão de direitos assinado em 20/11/2026 com o Artista E2E.');
+  await form.getByRole('button', { name: 'Enviar arte' }).click();
+  await expect(form.getByRole('status')).toContainText('(rascunho)');
+  await page.reload();
+  const arte = page.getByTestId('arte').filter({ hasText: 'Artista E2E' }).first();
+  await expect(arte.getByTestId('status-arte')).toContainText('rascunho');
+  const camada = await arte.locator('img').first().getAttribute('src');
+  expect(camada).toMatch(/^\/api\/character-art\/v\d+\/[a-z0-9_-]+\.svg$/);
+  const svg = await request.get(camada!);
+  expect(svg.status()).toBe(200);
+  expect(svg.headers()['content-security-policy']).toContain('sandbox');
+  const version = Number(/v(\d+)/.exec(camada!)![1]);
+
+  // clipe de teste com o rascunho (render com as camadas)
+  const clip = page.getByTestId('form-clipe');
+  await clip
+    .getByLabel('O que o Zeca fala')
+    .fill(`[empolgado] Bora! [desconfiado] [aponta_tela] Isso é rumor, hein.${attempt()}`);
+  await clip.getByLabel('Voz').selectOption('fake');
+  await clip.getByLabel('Arte').selectOption(String(version));
+  await clip.getByRole('button', { name: 'Gerar clipe de teste' }).click();
+  await expect(clip.getByRole('status')).toContainText('Clipe na fila');
+  const first = page.getByTestId('clipe').first();
+  await expect(async () => {
+    await page.reload();
+    await expect(first.getByTestId('status-clipe')).toHaveText(/pronto|falhou/, {
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 280_000, intervals: [5_000] });
+  await expect(first.getByTestId('status-clipe')).toHaveText('pronto');
+  await expect(first).toContainText('expressões empolgado, desconfiado');
+
+  // usar esta arte: os próximos vídeos saem com ela
+  await page
+    .getByTestId('arte')
+    .filter({ hasText: 'Artista E2E' })
+    .first()
+    .getByTestId('usar-arte')
+    .click();
+  await expect(page.getByTestId('arte-em-uso')).toContainText(`Arte de Artista E2E (v${version})`);
+  await expect(page.getByTestId('galeria-expressoes').locator('img').first()).toBeVisible();
 });

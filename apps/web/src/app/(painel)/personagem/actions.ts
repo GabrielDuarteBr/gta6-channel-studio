@@ -1,23 +1,27 @@
 'use server';
 
 import { LOCKED_RULES, parseScript, ScriptMarkupError } from '@studio/avatar';
-import { activeBible, audit, getPrisma, saveBibleVersion } from '@studio/db';
+import { activeBible, ArtPackError, audit, getPrisma, saveBibleVersion } from '@studio/db';
 import { claimsToBeHuman } from '@studio/policy';
 import { revalidatePath } from 'next/cache';
 import { z, ZodError } from 'zod';
 import { enqueueClip } from '@/server/character';
+import { ProofError, setActiveArt, uploadArt } from '@/server/character-art';
 import { requireOwner } from '@/server/session';
 
 export interface ActionState {
   ok?: boolean;
   message?: string;
   error?: string;
+  /** Lista de problemas (pacote de arte). */
+  details?: string[];
 }
 
 const clipSchema = z.object({
   script: z.string().trim().min(2, 'Escreva o que o Zeca vai falar.').max(6000),
   layout: z.enum(['landscape', 'vertical']),
   tts: z.enum(['fake', 'google']),
+  artVersion: z.coerce.number().int().positive().optional(),
 });
 
 /** Valida o roteiro aqui (marcações e regra 7) e manda o clipe para a fila. */
@@ -27,6 +31,7 @@ export async function generateClipAction(_prev: ActionState, form: FormData): Pr
     script: form.get('script'),
     layout: form.get('layout'),
     tts: form.get('tts') ?? 'fake',
+    artVersion: form.get('artVersion') ? form.get('artVersion') : undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Roteiro inválido.' };
   try {
@@ -119,5 +124,33 @@ export async function restoreBibleAction(form: FormData): Promise<void> {
   const row = await prisma.characterBible.findUnique({ where: { version } });
   if (!row) return;
   await saveBibleVersion(prisma, row.content, 'owner', `restaurada da versão ${version}`);
+  revalidatePath('/personagem');
+}
+
+/** Pacote de arte do artista: confere, guarda no S3 e cria a versão como rascunho. */
+export async function uploadArtAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  await requireOwner();
+  try {
+    const r = await uploadArt(form);
+    revalidatePath('/personagem');
+    return {
+      ok: true,
+      message: `Arte guardada como versão ${r.version} (rascunho). Confira a prévia abaixo, gere um clipe de teste com ela e clique em "Usar esta arte".`,
+      details: r.warnings,
+    };
+  } catch (err) {
+    if (err instanceof ArtPackError) return { error: err.message, details: err.errors };
+    if (err instanceof ProofError) return { error: err.message };
+    if (err instanceof ZodError) return { error: 'Pontos de giro inválidos (use de 0 a 100).' };
+    throw err;
+  }
+}
+
+export async function activateArtAction(form: FormData): Promise<void> {
+  await requireOwner();
+  const v = String(form.get('version') ?? '');
+  await setActiveArt(
+    v === 'provisoria' ? null : Number(z.coerce.number().int().positive().parse(v)),
+  );
   revalidatePath('/personagem');
 }

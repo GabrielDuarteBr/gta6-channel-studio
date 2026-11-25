@@ -5,6 +5,9 @@ import {
   estimatedNarrationSec,
   finalizeScript,
   linesForCheck,
+  markupSection,
+  personaSection,
+  styleIssues,
   ScriptValidationError,
   WORDS_PER_SECOND,
   writerOutputSchema,
@@ -71,19 +74,15 @@ export class ScriptRejectedError extends Error {
 
 export function writerSystemPrompt(bible: CharacterBible): string {
   return [
-    `Você escreve os roteiros do ${bible.channel}, canal de notícias de GTA 6 em português do Brasil, apresentado pelo personagem animado ${bible.name}.`,
+    `Você escreve os roteiros do ${bible.channel}, canal de GTA 6 em português do Brasil, apresentado pelo personagem animado ${bible.name}.`,
     '',
-    '# Quem é o apresentador',
-    bible.summary,
-    'Personalidade:',
-    ...bible.personality.map((p) => `- ${p}`),
-    `Voz: ${bible.voice.tone}. Ritmo: ${bible.voice.pace}.`,
-    `Bordões (use no máximo um por vídeo, sem forçar): ${bible.voice.catchphrases.join(' | ')}`,
-    'Evitar:',
-    ...bible.voice.avoid.map((a) => `- ${a}`),
-    'Regras do personagem (inegociáveis):',
-    ...bible.rules.map((r) => `- ${r}`),
-    `Sobre IA: ${bible.aiDisclosure}`,
+    personaSection(bible),
+    '',
+    '# Estrutura que funciona',
+    '- Gancho nos primeiros 3 segundos: reação, pergunta ou provocação (nada de "olá, pessoal").',
+    '- Para cada fato: fala o fato com fonte e, logo em seguida, reage (opinião, piada, comparação com outro GTA, "o que isso muda pra gente").',
+    '- Frases curtas, de fala. Pode usar perguntas retóricas, "pera aí", "olha só", "mano".',
+    '- Feche com uma pergunta ou provocação para os comentários (sem pedir like de forma chata).',
     '',
     '# Regras do canal (o código confere e devolve o roteiro se quebrar alguma)',
     '- Cada fala tem um tipo: abertura, fato, rumor, contexto, opiniao, chamada.',
@@ -92,24 +91,22 @@ export function writerSystemPrompt(bible: CharacterBible): string {
     '- Se a história é rumor, nada vira "fato" sem fonte oficial (Rockstar/Take-Two).',
     '- Nada de vazamento, cópia antecipada, datamine, trapaça online ou mods. Nada de spoiler de história, final ou reviravolta.',
     '- O apresentador nunca diz que é humano nem nega ser IA.',
-    '- Comentário próprio: explique por que a notícia importa e dê opinião (tipo "opiniao"), sem só repetir a manchete.',
-    '- Comece com um gancho nos primeiros segundos. Feche com uma chamada curta (sem pedir like de forma chata).',
+    '- Comentário próprio é o coração do vídeo: pelo menos uma "opiniao" para cada dois fatos/rumores.',
     '',
-    '# Marcações do apresentador (dentro do texto das falas)',
-    'Expressões (valem até a próxima): [feliz] [surpreso] [serio] [debochado] [bravo] [neutro].',
-    'Gestos: [aponta_tela] (quando mostra algo) e [aceno] (só na abertura). Pausa: [pausa] ou [pausa:600].',
-    'Use expressões variadas (pelo menos 3 no vídeo longo) e poucas pausas. Não use outras marcações.',
+    markupSection(),
     '',
     '# Cenas',
     '- Cada fala aponta para uma cena (scene), e as cenas só avançam (1, 1, 2, 3, 3...).',
     '- visual "biblioteca": use uma mídia da lista "Biblioteca" (libraryAssetId) quando combinar com a fala. Prefira imagens oficiais.',
     '- visual "gerar": imagem nova e original, descrita em inglês em imagePrompt (cenário, clima, objetos). PROIBIDO no prompt: GTA, Rockstar, nomes de personagens ou lugares do jogo (Vice City, Leonida, Lucia, Jason), logotipos, marcas, texto escrito, pessoas reais ou famosas.',
     '- visual "zeca": só o apresentador na tela (bom para abertura, opinião e chamada).',
-    '- headline: título curto (até 40 caracteres) que aparece no começo da cena, ou null.',
+    '- headline: título curto (até 40 caracteres) que aparece no começo da cena, ou null. Pode ter a cara do Zeca ("SÉRIO ISSO?").',
     '',
-    '# Thumbnail',
-    '- thumbnailTexts: 3 opções diferentes, até 26 caracteres, que não prometam o que o vídeo não mostra. Rumor não vira certeza.',
-    '- thumbnailExpression: a expressão do apresentador na thumbnail.',
+    '# Título, descrição e thumbnail',
+    '- Título com a energia do canal, mas sem prometer o que o vídeo não mostra. Rumor não vira certeza.',
+    '- Descrição em 2 a 4 frases, na voz do Zeca.',
+    '- thumbnailTexts: 3 opções diferentes, até 26 caracteres, que não prometam o que o vídeo não mostra.',
+    '- thumbnailExpression: a expressão do apresentador na thumbnail (empolgado, surpreso ou desconfiado costumam funcionar).',
   ].join('\n');
 }
 
@@ -197,7 +194,7 @@ export function fakeWriterOutput(input: WriteScriptInput): WriterOutput {
       id: 1,
       scene: 1,
       kind: 'abertura',
-      text: '[feliz] [aceno] Fala, galera do Radar!',
+      text: '[empolgado] [aceno] Bora, que tem novidade no radar! Senta aí que eu te conto.',
       sourceIds: [],
     },
     story.isRumor
@@ -205,14 +202,14 @@ export function fakeWriterOutput(input: WriteScriptInput): WriterOutput {
           id: 2,
           scene: 2,
           kind: 'rumor',
-          text: `[surpreso] [aponta_tela] Olha esse rumor, ainda não confirmado: ${title}.`,
+          text: `[desconfiado] [aponta_tela] Olha o que tão falando por aí, ainda não confirmado: ${title}.`,
           sourceIds: main,
         }
       : {
           id: 2,
           scene: 2,
           kind: 'fato',
-          text: `[surpreso] [aponta_tela] Saiu agora: ${title}.`,
+          text: `[surpreso] [aponta_tela] Mano, saiu agora: ${title}.`,
           sourceIds: main,
         },
     {
@@ -220,21 +217,21 @@ export function fakeWriterOutput(input: WriteScriptInput): WriterOutput {
       scene: 3,
       kind: 'opiniao',
       text: story.isRumor
-        ? '[serio] Calma: enquanto a Rockstar não falar, é só rumor, tá?'
-        : '[serio] Isso mexe com a expectativa de todo mundo que tá esperando o jogo.',
+        ? '[debochado] Pra mim, enquanto a Rockstar não abrir a boca, é rumor, hein! Calma lá.'
+        : '[feliz] Eu acho que isso muda muita coisa pra quem tá contando os dias pro jogo.',
       sourceIds: [],
     },
     {
       id: 4,
       scene: 3,
       kind: 'chamada',
-      text: '[debochado] As fontes estão na descrição. Bora pro próximo sinal?',
+      text: '[feliz] As fontes tão na descrição. E aí, você acredita? Me conta nos comentários!',
       sourceIds: [],
     },
   ];
   return {
     title: `GTA 6: ${title}`.slice(0, 95),
-    description: `O Zeca explica: ${title}.`,
+    description: `O Zeca comenta: ${title}. Vem ver comigo!`,
     thumbnailTexts: story.isRumor
       ? ['RUMOR NO AR', 'SERÁ VERDADE?', 'NOVIDADE?']
       : ['SAIU AGORA', 'NOVIDADE DE GTA 6', 'OLHA ISSO'],
@@ -248,6 +245,8 @@ export interface WriteScriptResult {
   script: VideoScript;
   attempts: number;
   estimatedSec: number;
+  /** O que ainda soa genérico depois da correção (aparece nas notas da produção). */
+  styleNotes: string[];
 }
 
 /** Erros que dá para mandar de volta ao Roteirista como correção. */
@@ -300,6 +299,7 @@ function reviewDraft(
 export async function writeScript(llm: Llm, input: WriteScriptInput): Promise<WriteScriptResult> {
   const system = writerSystemPrompt(input.bible);
   let feedback: string[] = [];
+  let hard: string[] = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
     const { data } = await llm.structured({
       task: 'agent:roteirista',
@@ -313,11 +313,19 @@ export async function writeScript(llm: Llm, input: WriteScriptInput): Promise<Wr
       productionId: input.productionId,
     });
     const { script, issues } = reviewDraft(input, data, llm.isReal);
-    if (script && issues.length === 0) {
-      return { script, attempts: attempt, estimatedSec: estimatedNarrationSec(script) };
+    hard = issues;
+    // Estilo (tom de telejornal, poucas expressões, sem opinião): pede UMA melhora, não bloqueia.
+    const style = script ? styleIssues(script, input.format) : [];
+    if (script && issues.length === 0 && (style.length === 0 || attempt === 2 || !llm.isReal)) {
+      return {
+        script,
+        attempts: attempt,
+        estimatedSec: estimatedNarrationSec(script),
+        styleNotes: style,
+      };
     }
-    feedback = issues;
+    feedback = [...issues, ...style.map((x) => `estilo: ${x}`)];
     if (!llm.isReal) break; // simulado: não adianta pedir de novo
   }
-  throw new ScriptRejectedError(feedback);
+  throw new ScriptRejectedError(hard.length ? hard : feedback);
 }

@@ -1,0 +1,10 @@
+MODELO DO PACOTE DE ARTE DO ZECA NEON (Radar Neon)
+
+Isto é só um MODELO de posições e nomes. O artista desenha por cima, do jeito dele.
+Regras (guia completo: docs/guia-arte-zeca.md):
+- Todas as camadas com o MESMO tamanho de tela (aqui 1500 x 1800 px), fundo transparente.
+- PNG (recomendado) ou SVG simples. Um arquivo por camada, com o nome exato.
+- A cabeça não tem olhos, sobrancelhas nem boca: eles são camadas separadas, por cima.
+- Ordem (de trás para a frente): costas, corpo, braço, cabeca, olhos, sobrancelhas, boca,
+  rosto-<expressão>, frente.
+- Pontos de giro padrão: pescoço em 50% x 55% da tela; ombro do braço em 66% x 62%.

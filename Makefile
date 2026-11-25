@@ -51,8 +51,8 @@ owner: .env ## Cria/recria o dono do painel (e-mail, senha e 2FA)
 coletar: .env ## Coleta notícias agora e mostra o resultado por fonte
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/collect-now.ts
 
-zeca: .env ## Clipe de teste do Zeca; ROTEIRO="...", VERTICAL=1, VOZ=google (voz real mesmo no modo simulado)
-	$(COMPOSE) exec -T -e ROTEIRO agents node_modules/.bin/tsx src/scripts/character-clip.ts $(if $(VERTICAL),--vertical,) $(if $(VOZ),--voz $(VOZ),)
+zeca: .env ## Clipe de teste do Zeca; ROTEIRO="...", VERTICAL=1, VOZ=google, ARTE=<versão da arte do artista>, DUAS=1 (2 renders comparados)
+	$(COMPOSE) exec -T -e ROTEIRO agents node_modules/.bin/tsx src/scripts/character-clip.ts $(if $(VERTICAL),--vertical,) $(if $(VOZ),--voz $(VOZ),) $(if $(ARTE),--arte $(ARTE),) $(if $(DUAS),--duas-vezes,)
 
 vozes: .env ## Lista as vozes Chirp 3 HD (pt-BR) da sua chave e gera amostras em vozes/ (AMOSTRAS=0 só lista)
 	$(COMPOSE) exec -T agents node_modules/.bin/tsx src/scripts/voices.ts $(if $(filter 0,$(AMOSTRAS)),,--amostras)

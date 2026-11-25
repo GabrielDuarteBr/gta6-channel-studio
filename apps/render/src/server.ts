@@ -42,6 +42,8 @@ const MEDIA_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.webp': 'image/webp',
+  // Camadas SVG da arte do personagem (conferidas no envio: sem script nem link externo).
+  '.svg': 'image/svg+xml',
   '.json': 'application/json',
 };
 

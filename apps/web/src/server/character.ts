@@ -11,6 +11,8 @@ export interface ClipRequest {
   layout: 'landscape' | 'vertical';
   /** Voz pedida pelo dono neste clipe (vale mesmo com o modo simulado ligado). */
   tts?: 'fake' | 'google';
+  /** Testar uma versão da arte do artista (rascunho); sem isto, a ativa. */
+  artVersion?: number;
 }
 
 /** Caracteres de voz do Google gastos no mês (mesma regra do agents). */

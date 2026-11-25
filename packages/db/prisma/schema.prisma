@@ -285,6 +285,37 @@ model CharacterBible {
   createdAt DateTime @default(now())
 }
 
+enum CharacterArtStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/// Arte autoral do personagem (camadas PNG/SVG do ilustrador). Só uma ATIVA por vez; sem
+/// nenhuma ativa, o render usa a arte provisória. A prova de direitos (contrato de cessão ou
+/// licença) é obrigatória — é o manifesto de direitos da arte.
+model CharacterArt {
+  id           String             @id @default(cuid())
+  version      Int                @unique
+  status       CharacterArtStatus @default(DRAFT)
+  artist       String
+  rightsProof  String
+  proofKey     String?
+  proofMime    String?
+  canvasWidth  Int
+  canvasHeight Int
+  /// camada → { key (S3), ext, mime, bytes, sha256 }
+  files        Json
+  /// { head: [x%, y%], arm: [x%, y%] }
+  pivots       Json
+  warnings     String[]
+  createdBy    String
+  createdAt    DateTime           @default(now())
+  activatedAt  DateTime?
+
+  @@index([status])
+}
+
 // ---------------------------------------------------------------------------
 // Fase 3 — Biblioteca (mídia com manifesto de direitos) e Produção de vídeos
 // ---------------------------------------------------------------------------

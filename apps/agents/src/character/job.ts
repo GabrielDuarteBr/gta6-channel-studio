@@ -21,6 +21,8 @@ export const clipJobSchema = z.object({
     .optional(),
   /** Voz pedida explicitamente pelo dono neste clipe (senão: configuração + modo simulado). */
   tts: z.enum(['fake', 'google']).optional(),
+  /** Versão da arte do artista para testar (rascunho); sem isto, a ativa. */
+  artVersion: z.number().int().positive().optional(),
 });
 export type ClipJobData = z.infer<typeof clipJobSchema>;
 
@@ -36,6 +38,8 @@ export interface ClipJobContext {
   mediaUrl: string;
   renderUrl: string;
   googleApiKey?: string | undefined;
+  /** S3 (camadas da arte do artista). */
+  store?: { get(key: string): Promise<Uint8Array> };
 }
 
 export async function runClipJob(ctx: ClipJobContext, raw: unknown): Promise<ClipResult> {
@@ -57,6 +61,7 @@ export async function runClipJob(ctx: ClipJobContext, raw: unknown): Promise<Cli
           : {}),
         media: new MediaService(ctx.mediaUrl),
         render: new RenderService(ctx.renderUrl),
+        ...(ctx.store ? { store: ctx.store } : {}),
       },
       { ...data, label: data.label },
     );

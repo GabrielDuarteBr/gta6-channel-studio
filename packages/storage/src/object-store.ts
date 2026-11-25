@@ -35,9 +35,10 @@ export interface S3Config {
 
 /**
  * Chaves aceitas, sem "..": Biblioteca, produções, envios do painel ainda não processados
- * (incoming/) e provas de permissão de parceiros (partners/).
+ * (incoming/), provas de permissão de parceiros (partners/) e camadas da arte do personagem
+ * (character-art/).
  */
-const KEY = /^(library|productions|incoming|partners)\/[a-z0-9][a-z0-9._/-]{0,200}$/;
+const KEY = /^(library|productions|incoming|partners|character-art)\/[a-z0-9][a-z0-9._/-]{0,200}$/;
 
 export function assertKey(key: string): void {
   if (!KEY.test(key) || key.includes('..') || key.includes('//')) {

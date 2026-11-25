@@ -137,4 +137,32 @@ describe('Roteirista', () => {
     await expect(writeScript(llm, input)).rejects.toThrow(ScriptRejectedError);
     expect(parse).toHaveBeenCalledTimes(2);
   });
+
+  it('roteiro com cara de telejornal recebe UMA chance de melhorar o estilo (não bloqueia)', async () => {
+    const good = fakeWriterOutput(input);
+    const extra = 'Isso muda bastante coisa pra quem espera o jogo, você não acha? '
+      .repeat(4)
+      .trim();
+    for (const id of [5, 6, 7]) {
+      good.lines.push({ id, scene: 3, kind: 'opiniao', text: `[serio] ${extra}`, sourceIds: [] });
+    }
+    const jornal = structuredClone(good);
+    jornal.lines[1]!.text = '[neutro] De acordo com a Rockstar, nesta quinta-feira saiu a data.';
+    const reply = (out: unknown) => ({
+      stop_reason: 'end_turn',
+      parsed_output: out,
+      usage: { input_tokens: 10, output_tokens: 10 },
+    });
+    const parse = vi.fn().mockResolvedValueOnce(reply(jornal)).mockResolvedValueOnce(reply(jornal));
+    const llm = new Llm({
+      simulation: false,
+      client: { messages: { parse: vi.fn() }, beta: { messages: { parse } } } as never,
+      budget: okBudget,
+      record: async () => {},
+    });
+    const r = await writeScript(llm, input);
+    expect(r.attempts).toBe(2);
+    expect(parse.mock.calls[1]![0].messages[0].content).toMatch(/estilo: tom de telejornal/);
+    expect(r.styleNotes.join(' ')).toMatch(/telejornal/);
+  });
 });

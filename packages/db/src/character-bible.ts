@@ -80,8 +80,35 @@ export async function saveBibleVersion(
   throw new Error('não consegui salvar a bíblia (conflito de versão)');
 }
 
-/** Primeira subida: grava a bíblia padrão como versão 1. */
+/** JSON com as chaves em ordem (o jsonb do Postgres reordena as chaves). */
+function canonical(value: unknown): string {
+  const sort = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(sort)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.keys(v as Record<string, unknown>)
+              .sort()
+              .map((k) => [k, sort((v as Record<string, unknown>)[k])]),
+          )
+        : v;
+  return JSON.stringify(sort(value));
+}
+
+/**
+ * Primeira subida: grava a bíblia padrão como versão 1. Nas próximas, se a versão ativa ainda é
+ * uma bíblia padrão do sistema (o dono nunca editou) e a padrão mudou, grava a nova padrão como
+ * versão nova. Bíblia editada ou restaurada pelo dono nunca é trocada.
+ */
 export async function ensureBible(db: PrismaClient): Promise<number | null> {
-  if ((await db.characterBible.count()) > 0) return null;
-  return saveBibleVersion(db, DEFAULT_BIBLE, 'system', 'bíblia inicial do Zeca Neon');
+  const latest = await db.characterBible.findFirst({ orderBy: { version: 'desc' } });
+  if (!latest) return saveBibleVersion(db, DEFAULT_BIBLE, 'system', 'bíblia inicial do Zeca Neon');
+  if (latest.createdBy !== 'system') return null;
+  if (canonical(latest.content) === canonical(DEFAULT_BIBLE)) return null;
+  return saveBibleVersion(
+    db,
+    DEFAULT_BIBLE,
+    'system',
+    'estilo novo do Zeca: comentarista youtuber, divertido e sarcástico',
+  );
 }

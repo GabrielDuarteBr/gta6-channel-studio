@@ -1,5 +1,9 @@
-import { blinkSchedule, frameState, type CharacterTimeline } from '@studio/avatar';
-import { ZecaArt } from '@studio/avatar/art';
+import {
+  artPackRefSchema,
+  blinkSchedule,
+  frameState,
+  type CharacterTimeline,
+} from '@studio/avatar';
 import type { ReactLayout, ReactPlan, ReactPlanBlock } from '@studio/production';
 import { useMemo, type CSSProperties } from 'react';
 import {
@@ -13,6 +17,7 @@ import {
   type CalculateMetadataFunction,
 } from 'remotion';
 import { z } from 'zod';
+import { Character } from '../Character';
 import {
   clamp01,
   FONT_DISPLAY,
@@ -33,6 +38,8 @@ export const reactShortSchema = z.object({
   plan: z.custom<ReactPlan>((v) => typeof v === 'object' && v !== null && 'blocks' in v),
   workBaseUrl: z.string(),
   provisional: z.boolean(),
+  /** Arte do ilustrador (camadas); sem ela, a arte provisória. */
+  art: artPackRefSchema.nullable().optional(),
 });
 export type ReactShortProps = z.infer<typeof reactShortSchema>;
 
@@ -91,7 +98,7 @@ const boxStyle = (b: Box): CSSProperties => ({
   height: `${b[3]}%`,
 });
 
-export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) {
+export function ReactShort({ plan, workBaseUrl, provisional, art }: ReactShortProps) {
   useFontsReady();
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
@@ -276,7 +283,7 @@ export function ReactShort({ plan, workBaseUrl, provisional }: ReactShortProps) 
       >
         {/* O selo "arte provisória" vai fora do desenho (abaixo do aviso de IA): o texto dentro
             do SVG, colado na borda inferior, variava entre renders. */}
-        <ZecaArt state={zeca} provisional={false} />
+        <Character state={zeca} art={art} workBaseUrl={workBaseUrl} provisional={false} />
       </div>
       {/* Legenda (só quando o Zeca fala) */}
       {caption && !inOutro ? (

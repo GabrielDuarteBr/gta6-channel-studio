@@ -240,7 +240,13 @@ d('produção de vídeo de notícia (pipeline)', () => {
     // frase de opinião longa para passar na duração mínima (alvo 210 s × 0,45)
     const extra = 'Isso muda bastante coisa para quem espera o jogo. '.repeat(10).trim();
     for (let i = 0; i < 5; i++) {
-      writer.lines.push({ id: 5 + i, scene: 3, kind: 'opiniao', text: extra, sourceIds: [] });
+      writer.lines.push({
+        id: 5 + i,
+        scene: 3,
+        kind: 'opiniao',
+        text: `[serio] ${extra}`,
+        sourceIds: [],
+      });
     }
     const ok = (data: unknown) => ({
       model: 'claude-sonnet-5-5',

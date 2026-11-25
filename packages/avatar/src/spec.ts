@@ -3,7 +3,16 @@
  * As marcações do roteiro ([surpreso], [aponta_tela]...) só aceitam estes nomes.
  */
 
-export const EXPRESSIONS = ['neutro', 'feliz', 'debochado', 'surpreso', 'serio', 'bravo'] as const;
+export const EXPRESSIONS = [
+  'neutro',
+  'feliz',
+  'empolgado',
+  'debochado',
+  'desconfiado',
+  'surpreso',
+  'serio',
+  'bravo',
+] as const;
 export type Expression = (typeof EXPRESSIONS)[number];
 
 export const GESTURES = ['aponta_tela', 'aceno'] as const;
@@ -16,10 +25,24 @@ export type MouthShape = (typeof MOUTH_SHAPES)[number];
 export const EXPRESSION_LABEL: Record<Expression, string> = {
   neutro: 'Neutro',
   feliz: 'Feliz',
+  empolgado: 'Empolgado',
   debochado: 'Debochado',
+  desconfiado: 'Desconfiado',
   surpreso: 'Surpreso',
   serio: 'Sério',
   bravo: 'Bravo',
+};
+
+/** Quando usar cada expressão (vai no prompt do roteirista e do comentarista). */
+export const EXPRESSION_USE: Record<Expression, string> = {
+  neutro: 'transição ou explicação rápida',
+  feliz: 'notícia boa, fechamento, elogio ao parceiro',
+  empolgado: 'novidade grande (com fonte), abertura com energia',
+  debochado: 'zoeira com a situação (atraso, preço, internet)',
+  desconfiado: 'rumor, promessa duvidosa, "será mesmo?"',
+  surpreso: 'revelação, número ou detalhe inesperado',
+  serio: 'alerta importante ("não cai nessa", golpe, vazamento)',
+  bravo: 'raro: atraso, golpe contra a comunidade',
 };
 
 export const GESTURE_LABEL: Record<Gesture, string> = {
