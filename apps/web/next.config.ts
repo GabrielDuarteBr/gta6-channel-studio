@@ -37,7 +37,19 @@ const config: NextConfig = {
     proxyClientMaxBodySize: '40mb',
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Camadas SVG da arte do personagem: nada roda nem carrega de fora (a última regra vence).
+      {
+        source: '/api/character-art/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+          },
+        ],
+      },
+    ];
   },
 };
 
